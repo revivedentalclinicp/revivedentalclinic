@@ -1,0 +1,90 @@
+.navbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  padding: 0;
+  background: rgba(255,255,255,0.97);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid transparent;
+  transition: box-shadow 0.3s, border-color 0.3s;
+}
+.navbar.scrolled {
+  box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+  border-bottom-color: var(--border);
+}
+
+.container {
+  max-width: 1140px; margin: 0 auto; padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 68px; gap: 16px;
+}
+
+/* ─── Logo ─── */
+.logo {
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0; text-decoration: none;
+}
+.logoIcon {
+  width: 42px; height: 42px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 10px;
+}
+.logoText {
+  font-size: 1.2rem; font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+  line-height: 1.1;
+}
+.logoAccent {
+  color: var(--primary, #2E3192);
+}
+
+/* ─── Nav Links ─── */
+.links { display: flex; list-style: none; gap: 2px; align-items: center; }
+.link {
+  padding: 7px 14px; border-radius: 8px;
+  font-size: 0.9rem; font-weight: 500; color: #475569;
+  transition: all 0.2s;
+}
+.link:hover { color: #0f172a; background: #f1f5f9; }
+.link.active { color: var(--primary, #2E3192); background: var(--primary-light, #ECEDF8); font-weight: 600; }
+
+/* ─── Actions ─── */
+.actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.userBtn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 16px; border-radius: 8px;
+  font-size: 0.875rem; font-weight: 600;
+  background: var(--primary-light, #ECEDF8);
+  color: var(--primary, #2E3192);
+  border: 1px solid rgba(36,120,235,0.2);
+  transition: all 0.2s;
+}
+.userBtn:hover { background: #dbeafe; }
+.logoutBtn {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 8px; border: 1px solid #fecaca;
+  background: #fef2f2; color: #ef4444; transition: all 0.2s;
+}
+.logoutBtn:hover { background: #fee2e2; }
+
+/* ─── Mobile ─── */
+.hamburger { display: none; background: none; border: none; color: #0f172a; padding: 4px; border-radius: 6px; cursor: pointer; }
+.mobileMenu {
+  overflow: hidden; background: #fff;
+  border-top: 1px solid #e2e8f0;
+  display: flex; flex-direction: column; padding: 10px 20px 16px; gap: 2px;
+}
+.mobileLink {
+  padding: 11px 14px; border-radius: 8px;
+  font-size: 0.92rem; font-weight: 500; color: #475569;
+  transition: all 0.2s; display: block;
+}
+.mobileLink:hover { color: #0f172a; background: #f1f5f9; }
+
+@media (max-width: 768px) {
+  .links, .actions { display: none; }
+  .hamburger { display: block; }
+  .logoIcon { width: 36px; height: 36px; }
+  .logoText { font-size: 1.05rem; }
+}
