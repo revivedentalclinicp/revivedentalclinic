@@ -7,6 +7,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Basic health-check route for the root
+app.get('/', (req, res) => {
+  res.send('Revive Dental API is running perfectly!');
+});
+
 // Chatbot Knowledge Base
 const KB = {
   toothache: 'Rinse with warm salt water and avoid very hot or cold foods. A toothache can indicate a cavity, abscess, or cracked tooth. Please book an appointment for a proper diagnosis.',
