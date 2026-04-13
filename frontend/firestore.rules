@@ -2,31 +2,55 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users: authenticated users can read/write their own document
+    // ─── Helper: is the requester an admin? ────────────────────────
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email in [
+        'revivedentalclinicdigital@gmail.com',
+        'revivedentalclinic@gmail.com',
+        'revivedentalclinicp@gmail.com'
+      ];
+    }
+
+    // ─── Users ─────────────────────────────────────────────────────
+    // Users can read/write their own document; admin can read all
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read:  if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Appointments: user can only access their own appointments
+    // ─── Appointments ───────────────────────────────────────────────
+    // - Authenticated users can CREATE appointments (for themselves)
+    // - Authenticated users can READ appointments (for double-booking check, own records)
+    // - Users can update/cancel ONLY their own appointments
+    // - Admins can read, update, delete ALL appointments
     match /appointments/{appointmentId} {
-      allow read, update, delete: if request.auth != null
-        && request.auth.uid == resource.data.userId;
+      allow read:   if request.auth != null;
       allow create: if request.auth != null
-        && request.auth.uid == request.resource.data.userId;
+                    && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null
+                    && (request.auth.uid == resource.data.userId || isAdmin());
     }
 
-    // Records: user can only access their own records
+    // ─── Inquiries ──────────────────────────────────────────────────
+    // Anyone authenticated can create; admin can read/update/delete
+    match /inquiries/{inquiryId} {
+      allow create: if request.auth != null;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ─── FAQs ───────────────────────────────────────────────────────
+    // Public read; admin can write
+    match /faqs/{faqId} {
+      allow read:   if true;
+      allow write:  if isAdmin();
+    }
+
+    // ─── Records ────────────────────────────────────────────────────
     match /records/{recordId} {
       allow read, update, delete: if request.auth != null
-        && request.auth.uid == resource.data.userId;
+        && (request.auth.uid == resource.data.userId || isAdmin());
       allow create: if request.auth != null
         && request.auth.uid == request.resource.data.userId;
-    }
-
-    // Public chatbot logs (optional, no auth required for reading)
-    match /chatLogs/{logId} {
-      allow create: if true;
-      allow read: if request.auth != null;
     }
   }
 }

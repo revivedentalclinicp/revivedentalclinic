@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { getAllAppointments, updateAppointmentStatus, rescheduleAppointment } from '../../services/adminService';
 import toast from 'react-hot-toast';
-import { FiCheck, FiX, FiClock, FiSearch } from 'react-icons/fi';
+import { FiCheck, FiX, FiClock, FiSearch, FiMail, FiPhone } from 'react-icons/fi';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://revivedentalbackend.onrender.com';
 
 const STATUS_COLORS = {
   pending:     { bg: '#fffbeb', color: '#d97706', border: '#fde68a' },
@@ -11,17 +13,22 @@ const STATUS_COLORS = {
   cancelled:   { bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0' },
 };
 
+const TIMES = ['09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM'];
+
 export default function AdminAppointments() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [rescheduleModal, setRescheduleModal] = useState(null);
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('');
+  const [actionLoading, setActionLoading] = useState(null); // appointmentId
 
   useEffect(() => { fetchData(); }, []);
 
   async function fetchData() {
+    setLoading(true);
     try {
       const data = await getAllAppointments();
       setAppointments(data);
@@ -29,12 +36,39 @@ export default function AdminAppointments() {
     setLoading(false);
   }
 
-  async function handleStatusChange(id, status) {
+  /**
+   * Send email notification to patient
+   */
+  async function sendUserEmail(appointment, status) {
+    if (!appointment.email) return;
     try {
-      await updateAppointmentStatus(id, status);
-      toast.success(`Appointment ${status}`);
+      await fetch(`${BACKEND_URL}/api/email/notify-user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userEmail: appointment.email,
+          userName:  appointment.name || 'Patient',
+          status,
+          date:      appointment.date,
+          time:      appointment.time,
+          doctor:    appointment.doctor,
+        }),
+      });
+    } catch (e) {
+      console.warn('Email notification failed:', e.message);
+    }
+  }
+
+  async function handleStatusChange(appointment, status) {
+    setActionLoading(appointment.id);
+    try {
+      await updateAppointmentStatus(appointment.id, status);
+      toast.success(`Appointment ${status === 'accepted' ? 'approved ✓' : 'rejected'}`);
+      // Send email to patient
+      await sendUserEmail(appointment, status);
       fetchData();
     } catch { toast.error('Failed to update'); }
+    setActionLoading(null);
   }
 
   async function handleReschedule() {
@@ -49,11 +83,15 @@ export default function AdminAppointments() {
     } catch { toast.error('Failed to reschedule'); }
   }
 
-  const filtered = appointments.filter(a =>
-    (a.name || '').toLowerCase().includes(search.toLowerCase()) ||
-    (a.phone || '').includes(search) ||
-    (a.service || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = appointments.filter(a => {
+    const matchStatus = filterStatus === 'all' || a.status === filterStatus;
+    const matchSearch =
+      (a.name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (a.phone || '').includes(search) ||
+      (a.email || '').toLowerCase().includes(search.toLowerCase()) ||
+      (a.doctor || '').toLowerCase().includes(search.toLowerCase());
+    return matchStatus && matchSearch;
+  });
 
   if (loading) {
     return (
@@ -65,37 +103,67 @@ export default function AdminAppointments() {
 
   return (
     <div>
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        marginBottom: 20, flexWrap: 'wrap', gap: 12,
-      }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <h2 style={{ fontWeight: 800, fontSize: '1.2rem', color: '#0f172a' }}>
           Appointment Management
         </h2>
-        <div style={{ position: 'relative' }}>
-          <FiSearch size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-          <input
-            value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name, phone, service..."
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Status filter */}
+          <select
+            value={filterStatus}
+            onChange={e => setFilterStatus(e.target.value)}
             className="form-control"
-            style={{ paddingLeft: 32, width: 280, fontSize: '0.85rem' }}
-          />
+            style={{ width: 'auto', fontSize: '0.85rem', padding: '7px 12px' }}
+          >
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="accepted">Accepted</option>
+            <option value="rejected">Rejected</option>
+            <option value="rescheduled">Rescheduled</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          {/* Search */}
+          <div style={{ position: 'relative' }}>
+            <FiSearch size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+            <input
+              value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name, email, phone..."
+              className="form-control"
+              style={{ paddingLeft: 32, width: 260, fontSize: '0.85rem' }}
+            />
+          </div>
         </div>
       </div>
 
-      <div style={{
-        background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden',
-      }}>
+      {/* Summary badges */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+        {[
+          { label: 'Total', count: appointments.length, color: '#64748b', bg: '#f1f5f9' },
+          { label: 'Pending', count: appointments.filter(a => a.status === 'pending').length, color: '#d97706', bg: '#fffbeb' },
+          { label: 'Accepted', count: appointments.filter(a => a.status === 'accepted').length, color: '#16a34a', bg: '#f0fdf4' },
+          { label: 'Rejected', count: appointments.filter(a => a.status === 'rejected').length, color: '#dc2626', bg: '#fef2f2' },
+        ].map(({ label, count, color, bg }) => (
+          <div key={label} style={{
+            background: bg, padding: '8px 16px', borderRadius: 8,
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600 }}>{label}</span>
+            <span style={{ fontSize: '1rem', fontWeight: 800, color }}>{count}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Table */}
+      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                {['Name', 'Phone', 'Service', 'Date', 'Time', 'Status', 'Actions'].map(h => (
+                {['Patient', 'Contact', 'Doctor', 'Date', 'Time', 'Reason', 'Status', 'Actions'].map(h => (
                   <th key={h} style={{
                     textAlign: 'left', padding: '14px 16px', fontSize: '0.72rem',
-                    fontWeight: 700, color: '#94a3b8', letterSpacing: 0.5,
-                    textTransform: 'uppercase',
+                    fontWeight: 700, color: '#94a3b8', letterSpacing: 0.5, textTransform: 'uppercase',
                   }}>{h}</th>
                 ))}
               </tr>
@@ -103,61 +171,91 @@ export default function AdminAppointments() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '40px 16px', color: '#94a3b8' }}>
-                    No appointments found
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '48px 16px', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: 8 }}>📋</div>
+                    <div>No appointments found</div>
                   </td>
                 </tr>
               ) : (
                 filtered.map(a => {
                   const sc = STATUS_COLORS[a.status] || STATUS_COLORS.pending;
+                  const isActing = actionLoading === a.id;
                   return (
                     <tr key={a.id} style={{ borderBottom: '1px solid #f8fafc' }}>
-                      <td style={{ padding: '14px 16px', fontWeight: 600, fontSize: '0.88rem', color: '#0f172a' }}>
-                        {a.name || '—'}
+                      {/* Patient */}
+                      <td style={{ padding: '14px 16px' }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.88rem', color: '#0f172a' }}>{a.name || '—'}</div>
+                        {a.email && (
+                          <a href={`mailto:${a.email}`} style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#64748b', fontSize: '0.76rem', textDecoration: 'none', marginTop: 2 }}>
+                            <FiMail size={11} /> {a.email}
+                          </a>
+                        )}
                       </td>
+                      {/* Contact */}
                       <td style={{ padding: '14px 16px', fontSize: '0.85rem', color: '#475569' }}>
-                        {a.phone || '—'}
+                        {a.phone ? (
+                          <a href={`tel:${a.phone}`} style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#475569', textDecoration: 'none' }}>
+                            <FiPhone size={12} /> {a.phone}
+                          </a>
+                        ) : '—'}
                       </td>
+                      {/* Doctor */}
+                      <td style={{ padding: '14px 16px', fontSize: '0.85rem', color: '#0f172a', fontWeight: 500 }}>
+                        {a.doctor || '—'}
+                      </td>
+                      {/* Date */}
                       <td style={{ padding: '14px 16px', fontSize: '0.85rem', color: '#475569' }}>
-                        {a.service || '—'}
+                        {a.date ? new Date(a.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                       </td>
-                      <td style={{ padding: '14px 16px', fontSize: '0.85rem', color: '#475569' }}>
-                        {a.date || '—'}
-                      </td>
+                      {/* Time */}
                       <td style={{ padding: '14px 16px', fontSize: '0.85rem', color: '#475569' }}>
                         {a.time || '—'}
                       </td>
+                      {/* Reason */}
+                      <td style={{ padding: '14px 16px', fontSize: '0.82rem', color: '#64748b', maxWidth: 160 }}>
+                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {a.reason || '—'}
+                        </div>
+                      </td>
+                      {/* Status */}
                       <td style={{ padding: '14px 16px' }}>
                         <span style={{
-                          padding: '4px 10px', borderRadius: 50, fontSize: '0.75rem',
+                          padding: '4px 10px', borderRadius: 50, fontSize: '0.74rem',
                           fontWeight: 700, background: sc.bg, color: sc.color,
                           border: `1px solid ${sc.border}`, textTransform: 'capitalize',
+                          whiteSpace: 'nowrap',
                         }}>
                           {a.status}
                         </span>
                       </td>
+                      {/* Actions */}
                       <td style={{ padding: '14px 16px' }}>
-                        <div style={{ display: 'flex', gap: 6 }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                           {a.status === 'pending' && (
                             <>
                               <button
-                                onClick={() => handleStatusChange(a.id, 'accepted')}
+                                onClick={() => handleStatusChange(a, 'accepted')}
+                                disabled={isActing}
                                 style={{
                                   padding: '5px 12px', borderRadius: 6,
                                   border: '1px solid #bbf7d0', background: '#f0fdf4',
                                   color: '#16a34a', fontWeight: 600, fontSize: '0.78rem',
                                   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                                  opacity: isActing ? 0.6 : 1,
                                 }}
                               >
-                                <FiCheck size={13} /> Accept
+                                {isActing ? <span className="spinner" style={{ width: 12, height: 12, borderWidth: 2, borderColor: '#bbf7d0', borderTopColor: '#16a34a' }} /> : <FiCheck size={13} />}
+                                Approve
                               </button>
                               <button
-                                onClick={() => handleStatusChange(a.id, 'rejected')}
+                                onClick={() => handleStatusChange(a, 'rejected')}
+                                disabled={isActing}
                                 style={{
                                   padding: '5px 12px', borderRadius: 6,
                                   border: '1px solid #fecaca', background: '#fef2f2',
                                   color: '#dc2626', fontWeight: 600, fontSize: '0.78rem',
                                   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                                  opacity: isActing ? 0.6 : 1,
                                 }}
                               >
                                 <FiX size={13} /> Reject
@@ -214,7 +312,7 @@ export default function AdminAppointments() {
               Reschedule Appointment
             </h3>
             <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: 20 }}>
-              {rescheduleModal.name} — {rescheduleModal.service}
+              {rescheduleModal.name} — {rescheduleModal.doctor}
             </p>
             <div className="form-group">
               <label>New Date</label>
@@ -228,7 +326,7 @@ export default function AdminAppointments() {
               <label>New Time</label>
               <select className="form-control" value={newTime} onChange={e => setNewTime(e.target.value)}>
                 <option value="">Select time...</option>
-                {['09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM'].map(t => (
+                {TIMES.map(t => (
                   <option key={t} value={t}>{t}</option>
                 ))}
               </select>
