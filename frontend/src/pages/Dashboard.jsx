@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { getAppointments, cancelAppointment } from '../services/appointmentService';
+import { subscribeAppointments, cancelAppointment } from '../services/appointmentService';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { FiCalendar, FiFileText, FiCreditCard, FiGrid, FiSearch, FiBell, FiDownload, FiPlus } from 'react-icons/fi';
@@ -13,16 +13,12 @@ const NAV_ITEMS = [
   { id: 'billing', label: 'Billing', Icon: FiCreditCard },
 ];
 
-const MOCK_HISTORY = [
-  { date: 'May 12, 2024', procedure: 'Deep Cleaning (Scaling)', dentist: 'Dr. Sarah Miller', status: 'Completed', action: 'Download' },
-  { date: 'Mar 05, 2024', procedure: 'Digital X-Ray (Full Mouth)', dentist: 'Dr. James Chen', status: 'Completed', action: 'Download' },
-  { date: 'Jan 22, 2024', procedure: 'Cavity Filling (Composite)', dentist: 'Dr. Sarah Miller', status: 'Follow-up Needed', action: 'View Notes' },
-];
-
 const STATUS_STYLE = {
-  'Completed':       { background: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
-  'Follow-up Needed':{ background: '#fffbeb', color: '#d97706', border: '#fde68a' },
-  'upcoming':        { background: '#eff6ff', color: '#2E3192', border: '#bfdbfe' },
+  'completed':       { background: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
+  'accepted':        { background: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
+  'pending':         { background: '#fffbeb', color: '#d97706', border: '#fde68a' },
+  'rescheduled':     { background: '#fffbeb', color: '#d97706', border: '#fde68a' },
+  'rejected':        { background: '#fef2f2', color: '#dc2626', border: '#fecaca' },
   'cancelled':       { background: '#fef2f2', color: '#dc2626', border: '#fecaca' },
 };
 
@@ -36,31 +32,32 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!currentUser) { navigate('/login'); return; }
-    fetchAppointments();
-  }, [currentUser]);
-
-  async function fetchAppointments() {
+    
     setLoading(true);
-    try {
-      const data = await getAppointments(currentUser.uid);
+    const unsubscribe = subscribeAppointments(currentUser.uid, (data) => {
       setAppointments(data);
-    } catch { toast.error('Failed to load appointments'); }
-    setLoading(false);
-  }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser, navigate]);
 
   async function handleCancel(id) {
     try {
       await cancelAppointment(id);
       toast.success('Appointment cancelled');
-      fetchAppointments();
     } catch { toast.error('Failed to cancel'); }
   }
 
-  const upcoming = appointments.find(a => a.status === 'upcoming');
-  const name = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Alex';
-
-  // Countdown mock
-  const countdownData = { days: '03', hrs: '14', min: '22' };
+  const todayStr = new Date().toISOString().split('T')[0];
+  const upcoming = appointments
+    .filter(a => ['pending', 'accepted', 'rescheduled'].includes(a.status) && a.date >= todayStr)
+    .sort((a, b) => {
+      if (a.date === b.date) return (a.time || '').localeCompare(b.time || '');
+      return a.date.localeCompare(b.date);
+    })[0];
+    
+  const name = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Patient';
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', paddingTop: 64 }}>
@@ -155,8 +152,8 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#2E3192', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Upcoming Visit</div>
-                      <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#0f172a' }}>{upcoming.service}</div>
-                      <div style={{ color: '#64748b', fontSize: '0.82rem' }}>With {upcoming.dentist} · {upcoming.service}</div>
+                      <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#0f172a' }}>{upcoming.reason || 'General Consultation'}</div>
+                      <div style={{ color: '#64748b', fontSize: '0.82rem' }}>With {upcoming.doctor}</div>
                     </div>
                   </div>
                   {/* Countdown */}
@@ -173,11 +170,8 @@ export default function Dashboard() {
                       style={{ padding: '9px 18px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', color: '#475569', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}>
                       Reschedule
                     </button>
-                    <button style={{ padding: '9px 18px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', color: '#475569', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}>
-                      Add to Calendar
-                    </button>
-                    <span style={{ display: 'flex', alignItems: 'center', padding: '5px 12px', borderRadius: 50, background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', fontSize: '0.78rem', fontWeight: 700 }}>
-                      CONFIRMED
+                    <span style={{ display: 'flex', alignItems: 'center', padding: '5px 12px', borderRadius: 50, background: (STATUS_STYLE[upcoming.status] || STATUS_STYLE['pending']).background, color: (STATUS_STYLE[upcoming.status] || STATUS_STYLE['pending']).color, border: `1px solid ${(STATUS_STYLE[upcoming.status] || STATUS_STYLE['pending']).border}`, fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase' }}>
+                      {upcoming.status}
                     </span>
                   </div>
                 </div>
@@ -196,24 +190,12 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-
-            {/* Stat cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 180 }}>
-              <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-                <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Loyalty Points</div>
-                <div style={{ fontWeight: 800, fontSize: '1.6rem', color: '#f59e0b' }}>1,250</div>
-              </div>
-              <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-                <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Next Check-up</div>
-                <div style={{ fontWeight: 800, fontSize: '1.2rem', color: '#0f172a' }}>Oct 2024</div>
-              </div>
-            </div>
           </div>
 
           {/* ── Treatment History ── */}
           <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: '24px 28px', marginBottom: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <h3 style={{ fontWeight: 800, fontSize: '1rem', color: '#0f172a' }}>Recent Treatment History</h3>
+              <h3 style={{ fontWeight: 800, fontSize: '1rem', color: '#0f172a' }}>Appointment History</h3>
               <button style={{ color: '#2E3192', fontSize: '0.85rem', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}>
                 View All Records
               </button>
@@ -222,31 +204,43 @@ export default function Dashboard() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    {['DATE', 'PROCEDURE', 'DENTIST', 'STATUS', 'ACTION'].map(h => (
+                    {['DATE', 'REASON', 'DOCTOR', 'STATUS', 'ACTION'].map(h => (
                       <th key={h} style={{ textAlign: 'left', padding: '10px 14px', fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', letterSpacing: 0.5, borderBottom: '1px solid #f1f5f9' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {[...MOCK_HISTORY, ...appointments.filter(a => a.status !== 'upcoming').slice(0, 3).map(a => ({
-                    date: a.date, procedure: a.service, dentist: a.dentist, status: a.status === 'completed' ? 'Completed' : 'Cancelled', action: 'Download', id: a.id,
-                  }))].map((row, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}>
-                      <td style={{ padding: '14px', fontSize: '0.875rem', color: '#475569' }}>{row.date}</td>
-                      <td style={{ padding: '14px', fontSize: '0.875rem', fontWeight: 600, color: '#0f172a' }}>{row.procedure}</td>
-                      <td style={{ padding: '14px', fontSize: '0.875rem', color: '#475569' }}>{row.dentist}</td>
-                      <td style={{ padding: '14px' }}>
-                        <span style={{ padding: '4px 10px', borderRadius: 50, fontSize: '0.75rem', fontWeight: 600, background: (STATUS_STYLE[row.status] || STATUS_STYLE['upcoming']).background, color: (STATUS_STYLE[row.status] || STATUS_STYLE['upcoming']).color, border: `1px solid ${(STATUS_STYLE[row.status] || STATUS_STYLE['upcoming']).border}` }}>
-                          {row.status}
-                        </span>
-                      </td>
-                      <td style={{ padding: '14px' }}>
-                        <button style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#2E3192', fontSize: '0.82rem', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}>
-                          <FiDownload size={13} /> {row.action}
-                        </button>
+                  {appointments.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: '#64748b', fontSize: '0.85rem' }}>
+                        No appointments found. Book your first visit!
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    appointments.map((a) => (
+                      <tr key={a.id} style={{ borderBottom: '1px solid #f8fafc' }}>
+                        <td style={{ padding: '14px', fontSize: '0.875rem', color: '#475569' }}>
+                          <span style={{ fontWeight: 600, color: '#0f172a' }}>{new Date(a.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                          <br />
+                          <span style={{ fontSize: '0.75rem' }}>{a.time}</span>
+                        </td>
+                        <td style={{ padding: '14px', fontSize: '0.875rem', fontWeight: 600, color: '#0f172a' }}>{a.reason || 'General Consultation'}</td>
+                        <td style={{ padding: '14px', fontSize: '0.875rem', color: '#475569' }}>{a.doctor}</td>
+                        <td style={{ padding: '14px' }}>
+                          <span style={{ padding: '4px 10px', borderRadius: 50, fontSize: '0.75rem', fontWeight: 600, textTransform: 'capitalize', ...(STATUS_STYLE[a.status] || STATUS_STYLE['pending']) }}>
+                            {a.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '14px' }}>
+                          {(a.status === 'pending' || a.status === 'accepted' || a.status === 'rescheduled') && (
+                            <button onClick={() => handleCancel(a.id)} style={{ color: '#dc2626', fontSize: '0.82rem', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}>
+                              Cancel
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

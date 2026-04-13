@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getAllAppointments, updateAppointmentStatus, rescheduleAppointment } from '../../services/adminService';
+import { subscribeAllAppointments, updateAppointmentStatus, rescheduleAppointment } from '../../services/adminService';
 import toast from 'react-hot-toast';
 import { FiCheck, FiX, FiClock, FiSearch, FiMail, FiPhone } from 'react-icons/fi';
 
@@ -25,16 +25,14 @@ export default function AdminAppointments() {
   const [newTime, setNewTime] = useState('');
   const [actionLoading, setActionLoading] = useState(null); // appointmentId
 
-  useEffect(() => { fetchData(); }, []);
-
-  async function fetchData() {
+  useEffect(() => {
     setLoading(true);
-    try {
-      const data = await getAllAppointments();
+    const unsubscribe = subscribeAllAppointments((data) => {
       setAppointments(data);
-    } catch { toast.error('Failed to load appointments'); }
-    setLoading(false);
-  }
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   /**
    * Send email notification to patient
@@ -66,7 +64,6 @@ export default function AdminAppointments() {
       toast.success(`Appointment ${status === 'accepted' ? 'approved ✓' : 'rejected'}`);
       // Send email to patient
       await sendUserEmail(appointment, status);
-      fetchData();
     } catch { toast.error('Failed to update'); }
     setActionLoading(null);
   }
@@ -79,7 +76,6 @@ export default function AdminAppointments() {
       setRescheduleModal(null);
       setNewDate('');
       setNewTime('');
-      fetchData();
     } catch { toast.error('Failed to reschedule'); }
   }
 

@@ -4,7 +4,7 @@
  */
 import {
   collection, addDoc, getDocs, updateDoc, deleteDoc, doc,
-  query, orderBy, where, serverTimestamp, getCountFromServer,
+  query, orderBy, where, serverTimestamp, getCountFromServer, onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -13,6 +13,13 @@ export async function getAllAppointments() {
   const q = query(collection(db, 'appointments'), orderBy('createdAt', 'desc'));
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export function subscribeAllAppointments(callback) {
+  const q = query(collection(db, 'appointments'), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  });
 }
 
 export async function updateAppointmentStatus(id, status) {

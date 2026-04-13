@@ -4,7 +4,7 @@
  */
 import {
   collection, addDoc, getDocs, updateDoc, doc,
-  query, where, orderBy, serverTimestamp,
+  query, where, orderBy, serverTimestamp, onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -79,6 +79,21 @@ export async function getAppointments(userId) {
   );
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/**
+ * Real-time listener for user appointments
+ */
+export function subscribeAppointments(userId, callback) {
+  const q = query(
+    collection(db, COL),
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc')
+  );
+  return onSnapshot(q, (snap) => {
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    callback(data);
+  });
 }
 
 /**
