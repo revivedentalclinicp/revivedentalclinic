@@ -49,14 +49,40 @@ export default function Dashboard() {
     } catch { toast.error('Failed to cancel'); }
   }
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const upcoming = appointments
-    .filter(a => ['pending', 'accepted', 'rescheduled'].includes(a.status) && a.date >= todayStr)
-    .sort((a, b) => {
-      if (a.date === b.date) return (a.time || '').localeCompare(b.time || '');
-      return a.date.localeCompare(b.date);
-    })[0];
-    
+  const now = new Date();
+
+  function parseDateTime(dateStr, timeStr) {
+    if (!dateStr) return new Date(0);
+    if (!timeStr) return new Date(`${dateStr}T00:00:00`);
+    let [time, modifier] = timeStr.split(' ');
+    if (!modifier) {
+      if (timeStr.split(':').length === 2) timeStr += ':00';
+      return new Date(`${dateStr}T${timeStr}`);
+    }
+    let [hours, minutes] = time.split(':');
+    hours = parseInt(hours, 10);
+    if (hours === 12) hours = modifier.toUpperCase() === 'AM' ? 0 : 12;
+    else if (modifier.toUpperCase() === 'PM') hours += 12;
+    const paddedHours = hours.toString().padStart(2, '0');
+    return new Date(`${dateStr}T${paddedHours}:${minutes}:00`);
+  }
+
+  const upcomingAppointments = [];
+  const historyAppointments = [];
+
+  appointments.forEach(a => {
+    const dateTime = parseDateTime(a.date, a.time);
+    if (a.status === 'accepted') {
+      if (dateTime > now) upcomingAppointments.push(a);
+      else historyAppointments.push(a);
+    } else {
+      historyAppointments.push(a);
+    }
+  });
+
+  upcomingAppointments.sort((a, b) => parseDateTime(a.date, a.time) - parseDateTime(b.date, b.time));
+  historyAppointments.sort((a, b) => parseDateTime(b.date, b.time) - parseDateTime(a.date, a.time));
+
   const name = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Patient';
 
   return (
@@ -140,42 +166,43 @@ export default function Dashboard() {
         <div style={{ padding: '24px 28px' }}>
 
           {/* ── Upcoming appointment + stat cards ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, marginBottom: 24 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginBottom: 24 }}>
 
-            {/* Upcoming card */}
-            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: '24px 28px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-              {upcoming ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 28, flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{ width: 52, height: 52, borderRadius: 12, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <FiCalendar size={24} color="#2E3192" />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#2E3192', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Upcoming Visit</div>
-                      <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#0f172a' }}>{upcoming.reason || 'General Consultation'}</div>
-                      <div style={{ color: '#64748b', fontSize: '0.82rem' }}>With {upcoming.doctor}</div>
-                    </div>
-                  </div>
-                  {/* Countdown */}
-                  <div style={{ display: 'flex', gap: 16, marginLeft: 'auto' }}>
-                    {[['Days', upcoming.date], ['Date', upcoming.date], ['Time', upcoming.time]].map(([label, val], i) => (
-                      <div key={i} style={{ textAlign: 'center' }}>
-                        <div style={{ fontWeight: 800, fontSize: '1.6rem', color: '#0f172a', lineHeight: 1 }}>{i === 0 ? '—' : val}</div>
-                        <div style={{ fontSize: '0.68rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 }}>{label}</div>
+            {upcomingAppointments.length > 0 ? (
+              upcomingAppointments.map(upcoming => (
+                <div key={upcoming.id} style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: '24px 28px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 28, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{ width: 52, height: 52, borderRadius: 12, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <FiCalendar size={24} color="#2E3192" />
                       </div>
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', gap: 10, marginLeft: 'auto' }}>
-                    <button onClick={() => handleCancel(upcoming.id)}
-                      style={{ padding: '9px 18px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', color: '#475569', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}>
-                      Reschedule
-                    </button>
-                    <span style={{ display: 'flex', alignItems: 'center', padding: '5px 12px', borderRadius: 50, background: (STATUS_STYLE[upcoming.status] || STATUS_STYLE['pending']).background, color: (STATUS_STYLE[upcoming.status] || STATUS_STYLE['pending']).color, border: `1px solid ${(STATUS_STYLE[upcoming.status] || STATUS_STYLE['pending']).border}`, fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase' }}>
-                      {upcoming.status}
-                    </span>
+                      <div>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#2E3192', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Upcoming Visit</div>
+                        <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#0f172a' }}>{upcoming.reason || 'General Consultation'}</div>
+                        <div style={{ color: '#64748b', fontSize: '0.82rem' }}>With {upcoming.doctor}</div>
+                      </div>
+                    </div>
+                    {/* Date & Time */}
+                    <div style={{ display: 'flex', gap: 24, marginLeft: 'auto' }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontWeight: 800, fontSize: '1.4rem', color: '#0f172a', lineHeight: 1 }}>{new Date(upcoming.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                        <div style={{ fontSize: '0.68rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 }}>Date</div>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontWeight: 800, fontSize: '1.4rem', color: '#0f172a', lineHeight: 1 }}>{upcoming.time}</div>
+                        <div style={{ fontSize: '0.68rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 }}>Time</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, marginLeft: 'auto' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', padding: '5px 12px', borderRadius: 50, background: (STATUS_STYLE[upcoming.status] || STATUS_STYLE['pending']).background, color: (STATUS_STYLE[upcoming.status] || STATUS_STYLE['pending']).color, border: `1px solid ${(STATUS_STYLE[upcoming.status] || STATUS_STYLE['pending']).border}`, fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase' }}>
+                        {upcoming.status === 'accepted' ? 'CONFIRMED' : upcoming.status}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              ) : (
+              ))
+            ) : (
+              <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: '24px 28px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                   <div style={{ width: 52, height: 52, borderRadius: 12, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <FiCalendar size={24} color="#2E3192" />
@@ -188,8 +215,8 @@ export default function Dashboard() {
                     <FiPlus size={15} /> Book Now
                   </Link>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* ── Treatment History ── */}
@@ -204,35 +231,32 @@ export default function Dashboard() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    {['DATE', 'REASON', 'DOCTOR', 'STATUS', 'ACTION'].map(h => (
+                    {['DATE', 'TIME', 'STATUS', 'ACTION'].map(h => (
                       <th key={h} style={{ textAlign: 'left', padding: '10px 14px', fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', letterSpacing: 0.5, borderBottom: '1px solid #f1f5f9' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {appointments.length === 0 ? (
+                  {historyAppointments.length === 0 ? (
                     <tr>
-                      <td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: '#64748b', fontSize: '0.85rem' }}>
-                        No appointments found. Book your first visit!
+                      <td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: '#64748b', fontSize: '0.85rem' }}>
+                        No history records found.
                       </td>
                     </tr>
                   ) : (
-                    appointments.map((a) => (
+                    historyAppointments.map((a) => (
                       <tr key={a.id} style={{ borderBottom: '1px solid #f8fafc' }}>
                         <td style={{ padding: '14px', fontSize: '0.875rem', color: '#475569' }}>
                           <span style={{ fontWeight: 600, color: '#0f172a' }}>{new Date(a.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                          <br />
-                          <span style={{ fontSize: '0.75rem' }}>{a.time}</span>
                         </td>
-                        <td style={{ padding: '14px', fontSize: '0.875rem', fontWeight: 600, color: '#0f172a' }}>{a.reason || 'General Consultation'}</td>
-                        <td style={{ padding: '14px', fontSize: '0.875rem', color: '#475569' }}>{a.doctor}</td>
+                        <td style={{ padding: '14px', fontSize: '0.875rem', fontWeight: 600, color: '#0f172a' }}>{a.time}</td>
                         <td style={{ padding: '14px' }}>
                           <span style={{ padding: '4px 10px', borderRadius: 50, fontSize: '0.75rem', fontWeight: 600, textTransform: 'capitalize', ...(STATUS_STYLE[a.status] || STATUS_STYLE['pending']) }}>
-                            {a.status}
+                            {a.status === 'accepted' ? 'completed' : a.status}
                           </span>
                         </td>
                         <td style={{ padding: '14px' }}>
-                          {(a.status === 'pending' || a.status === 'accepted' || a.status === 'rescheduled') && (
+                          {a.status === 'pending' && (
                             <button onClick={() => handleCancel(a.id)} style={{ color: '#dc2626', fontSize: '0.82rem', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}>
                               Cancel
                             </button>
