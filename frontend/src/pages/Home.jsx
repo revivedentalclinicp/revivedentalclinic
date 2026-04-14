@@ -29,7 +29,7 @@ function Hero() {
       <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, rgba(59,63,151,0.07) 1px, transparent 1px)', backgroundSize: '32px 32px', pointerEvents: 'none' }} />
 
       <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'center', padding: '48px 0' }}>
+        <div className="md-grid-cols-1 sm-text-center" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'center', padding: '48px 0' }}>
 
           {/* LEFT */}
           <div>
@@ -239,6 +239,7 @@ function ServicesSection() {
         </motion.div>
 
         <motion.div ref={ref} variants={stagger} initial="hidden" animate={isInView ? 'visible' : 'hidden'}
+          className="md-grid-cols-2 sm-grid-cols-1"
           style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
           {services.map((s, i) => (
             <motion.div key={s.title} variants={scaleIn}
@@ -511,6 +512,7 @@ function WhyUs() {
           <h2 style={{ fontSize: 'clamp(1.7rem, 3.5vw, 2.4rem)', fontWeight: 900, color: '#0f172a' }}>The Revive Dental Difference</h2>
         </motion.div>
         <motion.div ref={ref} variants={stagger} initial="hidden" animate={isInView ? 'visible' : 'hidden'}
+          className="md-grid-cols-2 sm-grid-cols-1"
           style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
           {reasons.map((r) => (
             <motion.div key={r.title} variants={fadeUp}
@@ -550,13 +552,15 @@ function CTABanner() {
           </p>
           <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link to="/book"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#F58220', color: '#fff', padding: '14px 32px', borderRadius: 12, fontWeight: 800, fontSize: '0.975rem', boxShadow: '0 4px 20px rgba(245,130,32,0.35)', transition: 'all 0.2s' }}
+              className="sm-w-full"
+              style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 8, background: '#F58220', color: '#fff', padding: '14px 32px', borderRadius: 12, fontWeight: 800, fontSize: '0.975rem', boxShadow: '0 4px 20px rgba(245,130,32,0.35)', transition: 'all 0.2s' }}
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = '#E0741F'; }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = '#F58220'; }}>
               Book Appointment <FiArrowRight size={16} />
             </Link>
             <a href="tel:8669062290"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.12)', color: '#fff', padding: '14px 28px', borderRadius: 12, fontWeight: 700, fontSize: '0.975rem', border: '1.5px solid rgba(255,255,255,0.25)', transition: 'all 0.2s' }}>
+              className="sm-w-full sm-mt-4"
+              style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.12)', color: '#fff', padding: '14px 28px', borderRadius: 12, fontWeight: 700, fontSize: '0.975rem', border: '1.5px solid rgba(255,255,255,0.25)', transition: 'all 0.2s' }}>
               <FiPhone size={16} /> Call Us Now
             </a>
           </div>
@@ -598,7 +602,7 @@ function ContactSection() {
   return (
     <section id="contact" className="section" style={{ background: '#fff' }}>
       <div className="container">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center' }}>
+        <div className="md-grid-cols-1 sm-gap-10" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center' }}>
 
           {/* LEFT — Info */}
           <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>
@@ -661,7 +665,7 @@ function ContactSection() {
                   <h3 style={{ fontWeight: 800, fontSize: '1.1rem', color: '#0f172a', marginBottom: 6 }}>Quick Inquiry</h3>
                   <p style={{ color: '#94a3b8', fontSize: '0.82rem', marginBottom: 24 }}>No login required — we'll get back to you!</p>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                  <div className="sm-grid-cols-1" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label>Full Name *</label>
                       <input
@@ -680,7 +684,7 @@ function ContactSection() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                  <div className="sm-grid-cols-1" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label>Contact Number *</label>
                       <input

@@ -107,7 +107,7 @@ export default function BookAppointment() {
       } catch { /* don't fail booking if email fails */ }
 
       toast.success('Appointment booked! We\'ll confirm shortly 🦷');
-      navigate('/dashboard');
+      navigate('/user/dashboard');
     } catch (err) {
       toast.error(err.message || 'Booking failed. Please try again.');
     }
@@ -156,7 +156,7 @@ export default function BookAppointment() {
         </div>
 
         {/* ── Main Layout ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, alignItems: 'start' }}>
+        <div className="md-grid-cols-1" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, alignItems: 'start' }}>
 
           {/* ── Form Panel ── */}
           <div style={{
@@ -181,6 +181,7 @@ export default function BookAppointment() {
 
                     <div
                       onClick={() => setForm({ ...form, doctor: DOCTOR.name })}
+                      className="sm-flex-col sm-text-center"
                       style={{
                         padding: '24px 28px', borderRadius: 14,
                         border: `2.5px solid ${form.doctor === DOCTOR.name ? '#2E3192' : '#e2e8f0'}`,
@@ -210,7 +211,7 @@ export default function BookAppointment() {
                         <div style={{ color: '#2E3192', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>
                           {DOCTOR.qualification}
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                        <div className="sm-center-items justify-center" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                           {/* Stars */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                             <div style={{ display: 'flex', gap: 2 }}>
@@ -327,7 +328,7 @@ export default function BookAppointment() {
                           Checking available slots...
                         </div>
                       ) : (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
+                        <div className="sm-grid-cols-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 8 }}>
                           {ALL_TIMES.map(t => {
                             const booked = isSlotBooked(t);
                             const selected = form.time === t;

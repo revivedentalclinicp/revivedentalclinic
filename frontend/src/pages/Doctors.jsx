@@ -69,7 +69,7 @@ export default function Doctors() {
             }}>
 
               {/* Blue banner */}
-              <div style={{
+              <div className="md-flex-col sm-text-center sm-p-4" style={{
                 background: 'linear-gradient(135deg, #3B3F97, #2E3192)',
                 padding: '32px 40px', display: 'flex', alignItems: 'center', gap: 24,
                 position: 'relative', overflow: 'hidden',
@@ -83,7 +83,7 @@ export default function Doctors() {
                   <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#fff', marginBottom: 4 }}>{d.name}</h2>
                   <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '1rem', fontWeight: 600 }}>{d.qualification} &nbsp;·&nbsp; {d.speciality}</div>
                 </div>
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: 24, position: 'relative', zIndex: 1 }}>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 24, position: 'relative', zIndex: 1, flexWrap: 'wrap', justifyContent: 'center', marginRight: 'auto' }}>
                   {[['12+', 'Years Experience'], ['5.0★', 'Rating'], ['326+', 'Reviews']].map(([val, label]) => (
                     <div key={label} style={{ textAlign: 'center' }}>
                       <div style={{ fontWeight: 900, fontSize: '1.5rem', color: '#fff' }}>{val}</div>
@@ -94,7 +94,7 @@ export default function Doctors() {
               </div>
 
               {/* Body */}
-              <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 0 }}>
+              <div className="md-grid-cols-1 md-text-center" style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 0 }}>
 
                 {/* Left — Photo */}
                 <div style={{
@@ -154,7 +154,7 @@ export default function Doctors() {
                     {d.bio}
                   </p>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
+                  <div className="sm-grid-cols-1" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
                     <div>
                       <h4 style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>
                         Qualifications
@@ -183,7 +183,7 @@ export default function Doctors() {
                   </div>
 
                   {/* Achievement badges */}
-                  <div style={{ display: 'flex', gap: 12, marginTop: 28, flexWrap: 'wrap' }}>
+                  <div className="sm-center-items justify-center" style={{ display: 'flex', gap: 12, marginTop: 28, flexWrap: 'wrap' }}>
                     {[
                       ['🏆', 'Award-Winning Dentist'],
                       ['💉', 'Pain-Free Specialist'],

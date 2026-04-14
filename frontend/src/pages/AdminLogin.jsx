@@ -11,7 +11,7 @@ export default function AdminLogin() {
   const [resetEmail, setResetEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
-  const { login, checkAdminStatus, logout, sendAdminPasswordReset } = useAuth();
+  const { login, checkAdminStatus, checkUserStatus, promoteToAdmin, logout, sendAdminPasswordReset } = useAuth();
   const navigate = useNavigate();
 
   // ── Login handler ─────────────────────────────────────────────
@@ -20,7 +20,22 @@ export default function AdminLogin() {
     setLoading(true);
     try {
       const res = await login(form.email, form.password);
-      const isAdmin = await checkAdminStatus(res.user);
+      
+      let isAdmin = await checkAdminStatus(res.user);
+      const isUser = await checkUserStatus(res.user);
+
+      if (!isAdmin && !isUser) {
+        await promoteToAdmin(res.user);
+        isAdmin = true;
+      }
+      
+      if (!isAdmin && isUser) {
+        toast.error('You are registered as a Patient, so you cannot access the Admin portal.');
+        await logout();
+        setLoading(false);
+        return;
+      }
+
       if (!isAdmin) {
         toast.error('Unauthorized — Admin access only');
         await logout();
@@ -80,6 +95,7 @@ export default function AdminLogin() {
             <motion.div key="login"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.35 }}
+              className="sm-p-4"
               style={{
                 background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0',
                 padding: '40px 36px', boxShadow: '0 4px 24px rgba(0,0,0,0.07)',
@@ -162,6 +178,7 @@ export default function AdminLogin() {
             <motion.div key="forgot"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.35 }}
+              className="sm-p-4"
               style={{
                 background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0',
                 padding: '40px 36px', boxShadow: '0 4px 24px rgba(0,0,0,0.07)',

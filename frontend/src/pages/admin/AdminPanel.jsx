@@ -50,9 +50,9 @@ export default function AdminPanel() {
           onClick={() => setSidebarOpen(false)}
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-            zIndex: 40, display: 'none',
+            zIndex: 40,
           }}
-          className="mobile-overlay"
+          className="mobile-overlay md-block"
         />
       )}
 
@@ -67,7 +67,7 @@ export default function AdminPanel() {
           transition: 'left 0.3s ease',
           overflowY: 'auto',
         }}
-        className="admin-sidebar"
+        className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}
       >
         {/* Brand */}
         <div style={{

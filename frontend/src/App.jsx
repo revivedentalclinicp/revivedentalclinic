@@ -11,6 +11,7 @@ import Doctors from './pages/Doctors';
 import AdminLogin from './pages/AdminLogin';
 import AdminPanel from './pages/admin/AdminPanel';
 import ProtectedRoute from './components/ProtectedRoute';
+import UserProtectedRoute from './components/UserProtectedRoute';
 
 function WithNav({ children }) {
   return (
@@ -28,10 +29,10 @@ export default function App() {
       <Route path="/" element={<WithNav><Home /></WithNav>} />
       <Route path="/login" element={<WithNav><Login /></WithNav>} />
       <Route path="/signup" element={<WithNav><Signup /></WithNav>} />
-      <Route path="/book" element={<WithNav><BookAppointment /></WithNav>} />
+      <Route path="/book" element={<UserProtectedRoute><WithNav><BookAppointment /></WithNav></UserProtectedRoute>} />
       <Route path="/services" element={<WithNav><Services /></WithNav>} />
       <Route path="/doctors" element={<WithNav><Doctors /></WithNav>} />
-      <Route path="/dashboard" element={<WithNav><Dashboard /></WithNav>} />
+      <Route path="/user/dashboard" element={<UserProtectedRoute><WithNav><Dashboard /></WithNav></UserProtectedRoute>} />
       <Route path="/admin" element={<AdminLogin />} />
       <Route
         path="/admin/dashboard"

@@ -90,6 +90,7 @@ export default function Dashboard() {
 
       {/* ── Sidebar ── */}
       <motion.aside initial={{ x: -40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.4 }}
+        className="md-hidden"
         style={{ width: 230, flexShrink: 0, background: '#fff', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', position: 'sticky', top: 64, height: 'calc(100vh - 64px)', overflowY: 'auto' }}>
 
         {/* User info */}
@@ -141,7 +142,7 @@ export default function Dashboard() {
       <main style={{ flex: 1, overflowY: 'auto' }}>
 
         {/* Top bar */}
-        <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '12px 28px', display: 'flex', alignItems: 'center', gap: 16, position: 'sticky', top: 0, zIndex: 10 }}>
+        <div className="sm-p-4" style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '12px 28px', display: 'flex', alignItems: 'center', gap: 16, position: 'sticky', top: 0, zIndex: 10 }}>
           <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
             <span>Dashboard</span> <span style={{ margin: '0 4px' }}>/</span>
             <span style={{ color: '#0f172a', fontWeight: 600 }}>Overview</span>
@@ -160,17 +161,17 @@ export default function Dashboard() {
           <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #2E3192, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '0.85rem', flexShrink: 0 }}>
             {name[0].toUpperCase()}
           </div>
-          <span style={{ fontWeight: 600, fontSize: '0.875rem', color: '#0f172a', whiteSpace: 'nowrap' }}>Welcome back, {name.split(' ')[0]}</span>
+          <span className="sm-hidden" style={{ fontWeight: 600, fontSize: '0.875rem', color: '#0f172a', whiteSpace: 'nowrap' }}>Welcome back, {name.split(' ')[0]}</span>
         </div>
 
-        <div style={{ padding: '24px 28px' }}>
+        <div className="sm-p-4" style={{ padding: '24px 28px' }}>
 
           {/* ── Upcoming appointment + stat cards ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginBottom: 24 }}>
 
             {upcomingAppointments.length > 0 ? (
               upcomingAppointments.map(upcoming => (
-                <div key={upcoming.id} style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: '24px 28px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                <div key={upcoming.id} className="sm-p-4" style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: '24px 28px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 28, flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                       <div style={{ width: 52, height: 52, borderRadius: 12, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -183,7 +184,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     {/* Date & Time */}
-                    <div style={{ display: 'flex', gap: 24, marginLeft: 'auto' }}>
+                    <div className="sm-gap-10 sm-m-0" style={{ display: 'flex', gap: 24, marginLeft: 'auto' }}>
                       <div style={{ textAlign: 'center' }}>
                         <div style={{ fontWeight: 800, fontSize: '1.4rem', color: '#0f172a', lineHeight: 1 }}>{new Date(upcoming.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
                         <div style={{ fontSize: '0.68rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 }}>Date</div>
@@ -227,7 +228,7 @@ export default function Dashboard() {
                 View All Records
               </button>
             </div>
-            <div style={{ overflowX: 'auto' }}>
+            <div className="table-responsive" style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
@@ -271,7 +272,7 @@ export default function Dashboard() {
           </div>
 
           {/* ── Quick Actions ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+          <div className="sm-grid-cols-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
             {[
               { label: 'Pay Bill', icon: '💳', color: '#2E3192' },
               { label: 'New Booking', icon: '➕', color: '#2E3192', href: '/book' },

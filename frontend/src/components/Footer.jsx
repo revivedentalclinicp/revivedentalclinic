@@ -116,7 +116,7 @@ export default function Footer() {
               onMouseLeave={e => e.currentTarget.style.color = '#818cf8'}>
               Book Appointment
             </button>
-            <button onClick={() => goTo('/dashboard')} style={linkStyle}
+            <button onClick={() => goTo('/user/dashboard')} style={linkStyle}
               onMouseEnter={e => e.currentTarget.style.color = '#818cf8'}
               onMouseLeave={e => e.currentTarget.style.color = '#64748b'}>
               Patient Dashboard

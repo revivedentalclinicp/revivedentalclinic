@@ -9,16 +9,30 @@ import { FcGoogle } from 'react-icons/fc';
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, checkUserStatus, checkAdminStatus, promoteToUser, logout } = useAuth();
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(form.email, form.password);
+      const res = await login(form.email, form.password);
+      let isUser = await checkUserStatus(res.user);
+      const isAdmin = await checkAdminStatus(res.user);
+
+      if (!isUser && !isAdmin) {
+        await promoteToUser(res.user);
+        isUser = true;
+      }
+
+      if (!isUser) {
+        toast.error('Access Denied. Please use the Admin Portal.');
+        await logout();
+        setLoading(false);
+        return;
+      }
       toast.success('Welcome back!');
-      navigate('/dashboard');
+      navigate('/user/dashboard');
     } catch (err) {
       toast.error(err.message.replace('Firebase:', '').trim());
     }
@@ -27,15 +41,22 @@ export default function Login() {
 
   async function handleGoogle() {
     try {
-      await loginWithGoogle();
+      const res = await loginWithGoogle();
+      const isUser = await checkUserStatus(res.user);
+      if (!isUser) {
+        toast.error('Access Denied. Please use the Admin Portal.');
+        await logout();
+        return;
+      }
       toast.success('Signed in with Google!');
-      navigate('/dashboard');
+      navigate('/user/dashboard');
     } catch { toast.error('Google sign-in failed'); }
   }
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #ECEDF8 0%, #f8fafc 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px 40px' }}>
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+        className="sm-p-4"
         style={{ width: '100%', maxWidth: 420, background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: '40px 36px', boxShadow: '0 4px 24px rgba(0,0,0,0.07)' }}>
 
         <div style={{ textAlign: 'center', marginBottom: 32 }}>

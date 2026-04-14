@@ -9,7 +9,7 @@ import { FcGoogle } from 'react-icons/fc';
 export default function Signup() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirm: '' });
   const [loading, setLoading] = useState(false);
-  const { signup, loginWithGoogle } = useAuth();
+  const { signup, loginWithGoogle, checkUserStatus, logout } = useAuth();
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
@@ -19,9 +19,17 @@ export default function Signup() {
     if (form.password.length < 6) return toast.error('Password must be at least 6 characters');
     setLoading(true);
     try {
-      await signup(form.email, form.password, form.name, form.phone);
+      const res = await signup(form.email, form.password, form.name, form.phone);
+      const isUser = await checkUserStatus(res.user);
+      if (!isUser) {
+        toast.success('Admin Account created. Please use Admin Portal to login.');
+        await logout();
+        navigate('/admin');
+        setLoading(false);
+        return;
+      }
       toast.success('Account created! Welcome 🦷');
-      navigate('/dashboard');
+      navigate('/user/dashboard');
     } catch (err) {
       toast.error(err.message.replace('Firebase:', '').trim());
     }
@@ -30,9 +38,15 @@ export default function Signup() {
 
   async function handleGoogle() {
     try {
-      await loginWithGoogle();
+      const res = await loginWithGoogle();
+      const isUser = await checkUserStatus(res.user);
+      if (!isUser) {
+        toast.error('Access Denied. Please use the Admin Portal.');
+        await logout();
+        return;
+      }
       toast.success('Signed in with Google!');
-      navigate('/dashboard');
+      navigate('/user/dashboard');
     } catch { toast.error('Google sign-in failed'); }
   }
 
@@ -47,6 +61,7 @@ export default function Signup() {
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #ECEDF8 0%, #f8fafc 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px 40px' }}>
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+        className="sm-p-4"
         style={{ width: '100%', maxWidth: 440, background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: '40px 36px', boxShadow: '0 4px 24px rgba(0,0,0,0.07)' }}>
 
         <div style={{ textAlign: 'center', marginBottom: 28 }}>

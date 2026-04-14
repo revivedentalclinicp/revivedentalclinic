@@ -152,7 +152,7 @@ export default function AdminAppointments() {
 
       {/* Table */}
       <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-responsive" style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #f1f5f9' }}>

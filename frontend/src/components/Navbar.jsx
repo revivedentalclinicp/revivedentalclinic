@@ -119,7 +119,7 @@ export default function Navbar() {
         <div className={styles.actions}>
           {currentUser ? (
             <>
-              <Link to="/dashboard" className={styles.userBtn}>
+              <Link to="/user/dashboard" className={styles.userBtn}>
                 <FiUser size={14} />
                 {currentUser.displayName?.split(' ')[0] || 'Dashboard'}
               </Link>
@@ -163,7 +163,7 @@ export default function Navbar() {
             ))}
             {currentUser ? (
               <>
-                <Link to="/dashboard" className={styles.mobileLink}>Dashboard</Link>
+                <Link to="/user/dashboard" className={styles.mobileLink}>Dashboard</Link>
                 <button onClick={handleLogout} className={styles.mobileLink}
                   style={{ background: 'none', border: 'none', textAlign: 'left', width: '100%', color: '#ef4444', cursor: 'pointer' }}>Logout</button>
               </>

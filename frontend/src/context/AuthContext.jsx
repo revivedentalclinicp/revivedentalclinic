@@ -5,7 +5,7 @@ import {
   sendPasswordResetEmail,
 } from 'firebase/auth';
 import { auth, googleProvider, db } from '../firebase/config';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 
 const AuthContext = createContext();
 export function useAuth() { return useContext(AuthContext); }
@@ -25,16 +25,18 @@ export function AuthProvider({ children }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // ── Register patient (email/password) ──────────────────────────
+  // ── Register (email/password) ──────────────────────────────────
   async function signup(email, password, name, phone) {
     const res = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(res.user, { displayName: name });
-    await setDoc(doc(db, 'users', res.user.uid), {
+    
+    const collectionName = ADMIN_EMAILS.includes(email.toLowerCase()) ? 'admins' : 'users';
+    
+    await setDoc(doc(db, collectionName, res.user.uid), {
       uid: res.user.uid,
       name,
       email,
       phone: phone || '',
-      role: 'patient',
       createdAt: serverTimestamp(),
     });
     return res;
@@ -48,16 +50,16 @@ export function AuthProvider({ children }) {
   // ── Google OAuth ───────────────────────────────────────────────
   async function loginWithGoogle() {
     const res = await signInWithPopup(auth, googleProvider);
-    const userDoc = await getDoc(doc(db, 'users', res.user.uid));
+    const collectionName = ADMIN_EMAILS.includes(res.user.email?.toLowerCase()) ? 'admins' : 'users';
+    const userDoc = await getDoc(doc(db, collectionName, res.user.uid));
     const isNewUser = !userDoc.exists();
 
     if (isNewUser) {
-      await setDoc(doc(db, 'users', res.user.uid), {
+      await setDoc(doc(db, collectionName, res.user.uid), {
         uid: res.user.uid,
         name: res.user.displayName,
         email: res.user.email,
         phone: '',
-        role: 'patient',
         createdAt: serverTimestamp(),
       });
       // Send welcome email to new Google users
@@ -78,18 +80,43 @@ export function AuthProvider({ children }) {
   // ── Check if user is admin ─────────────────────────────────────
   async function checkAdminStatus(user) {
     if (!user) { setIsAdmin(false); return false; }
-    if (ADMIN_EMAILS.includes(user.email?.toLowerCase())) {
-      setIsAdmin(true);
-      return true;
-    }
     try {
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (userDoc.exists() && userDoc.data().role === 'admin') {
+      const adminDoc = await getDoc(doc(db, 'admins', user.uid));
+      if (adminDoc.exists() || ADMIN_EMAILS.includes(user.email?.toLowerCase())) {
         setIsAdmin(true);
         return true;
       }
+      
+      if (user.email) {
+        const q = query(collection(db, 'admins'), where('email', '==', user.email.toLowerCase()));
+        const adminSnaps = await getDocs(q);
+        if (!adminSnaps.empty) {
+          setIsAdmin(true);
+          return true;
+        }
+      }
     } catch (e) { /* ignore */ }
     setIsAdmin(false);
+    return false;
+  }
+
+  // ── Check if user is standard patient ─────────────────────────
+  async function checkUserStatus(user) {
+    if (!user) return false;
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        return true;
+      }
+      
+      if (user.email) {
+        const q = query(collection(db, 'users'), where('email', '==', user.email.toLowerCase()));
+        const userSnaps = await getDocs(q);
+        if (!userSnaps.empty) {
+          return true;
+        }
+      }
+    } catch (e) { /* ignore */ }
     return false;
   }
 
@@ -102,11 +129,50 @@ export function AuthProvider({ children }) {
     await sendPasswordResetEmail(auth, normalised);
   }
 
+  // ── Orphan Account Healing ─────────────────────────────────────
+  async function promoteToAdmin(user) {
+    await setDoc(doc(db, 'admins', user.uid), {
+      uid: user.uid,
+      name: user.displayName || 'Admin',
+      email: user.email,
+      createdAt: serverTimestamp(),
+    });
+  }
+
+  async function promoteToUser(user) {
+    await setDoc(doc(db, 'users', user.uid), {
+      uid: user.uid,
+      name: user.displayName || 'Patient',
+      email: user.email,
+      phone: '',
+      createdAt: serverTimestamp(),
+    });
+  }
+
   // ── Load user profile (phone etc.) from Firestore ─────────────
-  async function loadUserProfile(uid) {
+  async function loadUserProfile(uid, email) {
     try {
-      const snap = await getDoc(doc(db, 'users', uid));
-      if (snap.exists()) setUserProfile(snap.data());
+      let snap = await getDoc(doc(db, 'users', uid));
+      if (!snap.exists()) snap = await getDoc(doc(db, 'admins', uid));
+      if (snap.exists()) {
+        setUserProfile(snap.data());
+        return;
+      }
+      
+      if (email) {
+        const qUser = query(collection(db, 'users'), where('email', '==', email.toLowerCase()));
+        const snapUser = await getDocs(qUser);
+        if (!snapUser.empty) {
+          setUserProfile(snapUser.docs[0].data());
+          return;
+        }
+        
+        const qAdmin = query(collection(db, 'admins'), where('email', '==', email.toLowerCase()));
+        const snapAdmin = await getDocs(qAdmin);
+        if (!snapAdmin.empty) {
+          setUserProfile(snapAdmin.docs[0].data());
+        }
+      }
     } catch (e) { /* ignore */ }
   }
 
@@ -120,7 +186,7 @@ export function AuthProvider({ children }) {
       setCurrentUser(user);
       if (user) {
         await checkAdminStatus(user);
-        await loadUserProfile(user.uid);
+        await loadUserProfile(user.uid, user.email);
       } else {
         setIsAdmin(false);
         setUserProfile(null);
@@ -139,6 +205,9 @@ export function AuthProvider({ children }) {
     loginWithGoogle,
     logout,
     checkAdminStatus,
+    checkUserStatus,
+    promoteToAdmin,
+    promoteToUser,
     sendAdminPasswordReset,
     ADMIN_EMAILS,
   };
