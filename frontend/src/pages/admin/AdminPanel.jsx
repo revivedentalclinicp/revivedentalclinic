@@ -4,16 +4,18 @@ import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
 import {
   FiGrid, FiCalendar, FiMessageSquare, FiHelpCircle,
-  FiLogOut, FiMenu, FiX,
+  FiLogOut, FiMenu, FiX, FiUsers,
 } from 'react-icons/fi';
 import AdminDashboard from './AdminDashboard';
 import AdminAppointments from './AdminAppointments';
 import AdminInquiries from './AdminInquiries';
 import AdminFAQs from './AdminFAQs';
+import AdminRecords from './AdminRecords';
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', Icon: FiGrid },
   { id: 'appointments', label: 'Appointments', Icon: FiCalendar },
+  { id: 'records', label: 'Patient Records', Icon: FiUsers },
   { id: 'inquiries', label: 'Inquiries', Icon: FiMessageSquare },
   { id: 'faqs', label: 'FAQs', Icon: FiHelpCircle },
 ];
@@ -33,11 +35,12 @@ export default function AdminPanel() {
 
   function renderContent() {
     switch (activeTab) {
-      case 'dashboard': return <AdminDashboard />;
+      case 'dashboard':    return <AdminDashboard />;
       case 'appointments': return <AdminAppointments />;
-      case 'inquiries': return <AdminInquiries />;
-      case 'faqs': return <AdminFAQs />;
-      default: return <AdminDashboard />;
+      case 'records':      return <AdminRecords />;
+      case 'inquiries':    return <AdminInquiries />;
+      case 'faqs':         return <AdminFAQs />;
+      default:             return <AdminDashboard />;
     }
   }
 

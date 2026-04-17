@@ -4,13 +4,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { subscribeAppointments, cancelAppointment } from '../services/appointmentService';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { FiCalendar, FiFileText, FiCreditCard, FiGrid, FiSearch, FiBell, FiDownload, FiPlus } from 'react-icons/fi';
+import { FiCalendar, FiFileText, FiGrid, FiSearch, FiBell } from 'react-icons/fi';
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', Icon: FiGrid },
   { id: 'appointments', label: 'My Appointments', Icon: FiCalendar },
   { id: 'records', label: 'Records', Icon: FiFileText },
-  { id: 'billing', label: 'Billing', Icon: FiCreditCard },
 ];
 
 const STATUS_STYLE = {
@@ -67,15 +66,28 @@ export default function Dashboard() {
     return new Date(`${dateStr}T${paddedHours}:${minutes}:00`);
   }
 
+  // ── Appointment categorization ────────────────────────────────
+  // Upcoming: status === 'accepted' AND date+time is in the future
+  // History:  date+time is in the past  OR  status is rejected/cancelled/completed/rescheduled
   const upcomingAppointments = [];
   const historyAppointments = [];
 
   appointments.forEach(a => {
     const dateTime = parseDateTime(a.date, a.time);
-    if (a.status === 'accepted') {
-      if (dateTime > now) upcomingAppointments.push(a);
-      else historyAppointments.push(a);
+    const isPast = dateTime <= now;
+
+    if (a.status === 'accepted' && !isPast) {
+      upcomingAppointments.push(a);
+    } else if (
+      isPast ||
+      a.status === 'rejected' ||
+      a.status === 'cancelled' ||
+      a.status === 'completed' ||
+      a.status === 'rescheduled'
+    ) {
+      historyAppointments.push(a);
     } else {
+      // pending + future → also history (waiting for approval)
       historyAppointments.push(a);
     }
   });
@@ -213,7 +225,7 @@ export default function Dashboard() {
                     <div style={{ color: '#64748b', fontSize: '0.85rem' }}>Book your next visit to get started.</div>
                   </div>
                   <Link to="/book" className="btn-primary" style={{ marginLeft: 'auto' }}>
-                    <FiPlus size={15} /> Book Now
+                    <span style={{ fontSize: '1.1rem', lineHeight: 1 }}>+</span> Book Now
                   </Link>
                 </div>
               </div>
@@ -271,23 +283,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* ── Quick Actions ── */}
-          <div className="sm-grid-cols-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-            {[
-              { label: 'Pay Bill', icon: '💳', color: '#2E3192' },
-              { label: 'New Booking', icon: '➕', color: '#2E3192', href: '/book' },
-              { label: 'Insurance', icon: '📋', color: '#2E3192' },
-              { label: 'Care Guide', icon: '❓', color: '#2E3192' },
-            ].map(({ label, icon, color, href }) => (
-              <Link key={label} to={href || '#'}
-                style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '20px 16px', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', transition: 'all 0.2s', display: 'block' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#2E3192'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(37,99,235,0.1)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'; }}>
-                <div style={{ fontSize: '1.4rem', marginBottom: 8 }}>{icon}</div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0f172a' }}>{label}</div>
-              </Link>
-            ))}
-          </div>
         </div>
       </main>
 

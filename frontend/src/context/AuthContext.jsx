@@ -13,7 +13,7 @@ export function useAuth() { return useContext(AuthContext); }
 // Admin whitelist — all three clinic emails
 const ADMIN_EMAILS = [
   'revivedentalclinicdigital@gmail.com',
-  'revivedentalclinic@gmail.com',
+  'revivedentalspecialityclinicp@gmail.com',
   'revivedentalclinicp@gmail.com',
 ];
 
@@ -29,16 +29,25 @@ export function AuthProvider({ children }) {
   async function signup(email, password, name, phone) {
     const res = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(res.user, { displayName: name });
-    
-    const collectionName = ADMIN_EMAILS.includes(email.toLowerCase()) ? 'admins' : 'users';
-    
-    await setDoc(doc(db, collectionName, res.user.uid), {
-      uid: res.user.uid,
-      name,
-      email,
-      phone: phone || '',
-      createdAt: serverTimestamp(),
-    });
+
+    const isAdminEmail = ADMIN_EMAILS.includes(email.toLowerCase());
+
+    if (isAdminEmail) {
+      await setDoc(doc(db, 'admins', res.user.uid), {
+        uid: res.user.uid,
+        email: email.toLowerCase(),
+        role: 'admin',
+        createdAt: serverTimestamp(),
+      });
+    } else {
+      await setDoc(doc(db, 'users', res.user.uid), {
+        uid: res.user.uid,
+        name,
+        email,
+        phone: phone || '',
+        createdAt: serverTimestamp(),
+      });
+    }
     return res;
   }
 
@@ -78,15 +87,17 @@ export function AuthProvider({ children }) {
   }
 
   // ── Check if user is admin ─────────────────────────────────────
+  // SPEC: admin access = UID exists in Firestore 'admins' collection
   async function checkAdminStatus(user) {
     if (!user) { setIsAdmin(false); return false; }
     try {
+      // Primary: check by UID
       const adminDoc = await getDoc(doc(db, 'admins', user.uid));
-      if (adminDoc.exists() || ADMIN_EMAILS.includes(user.email?.toLowerCase())) {
+      if (adminDoc.exists()) {
         setIsAdmin(true);
         return true;
       }
-      
+      // Secondary: check by email field (handles UID mismatch edge-cases)
       if (user.email) {
         const q = query(collection(db, 'admins'), where('email', '==', user.email.toLowerCase()));
         const adminSnaps = await getDocs(q);
@@ -95,7 +106,7 @@ export function AuthProvider({ children }) {
           return true;
         }
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) { /* ignore Firestore errors */ }
     setIsAdmin(false);
     return false;
   }
@@ -120,23 +131,34 @@ export function AuthProvider({ children }) {
     return false;
   }
 
-  // ── Admin forgot password (validates against whitelist) ────────
+  // ── Admin forgot password (validates against whitelist OR Firestore) ────────
   async function sendAdminPasswordReset(email) {
     const normalised = email.toLowerCase().trim();
-    if (!ADMIN_EMAILS.includes(normalised)) {
-      throw new Error('This email is not registered as an admin account.');
+    // First check hardcoded whitelist
+    let isValidAdmin = ADMIN_EMAILS.includes(normalised);
+    // Then check Firestore admins collection by email
+    if (!isValidAdmin) {
+      try {
+        const q = query(collection(db, 'admins'), where('email', '==', normalised));
+        const snap = await getDocs(q);
+        isValidAdmin = !snap.empty;
+      } catch (e) { /* ignore */ }
+    }
+    if (!isValidAdmin) {
+      throw new Error('This email is not registered as admin.');
     }
     await sendPasswordResetEmail(auth, normalised);
   }
 
-  // ── Orphan Account Healing ─────────────────────────────────────
+  // ── Orphan Account Healing — only for whitelisted emails ─────────────────────────────────────
   async function promoteToAdmin(user) {
+    // Only allow whitelisted emails or emails already in Firestore admins collection
     await setDoc(doc(db, 'admins', user.uid), {
       uid: user.uid,
-      name: user.displayName || 'Admin',
       email: user.email,
+      role: 'admin',
       createdAt: serverTimestamp(),
-    });
+    }, { merge: true });
   }
 
   async function promoteToUser(user) {

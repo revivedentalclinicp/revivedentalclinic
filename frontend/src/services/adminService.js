@@ -80,33 +80,38 @@ export async function deleteFAQ(id) {
 
 // ─── DASHBOARD STATS ────────────────────────
 export async function getDashboardStats() {
-  const appointmentsSnap = await getDocs(collection(db, 'appointments'));
-  const inquiriesSnap = await getDocs(collection(db, 'inquiries'));
+  const [appointmentsSnap, inquiriesSnap, usersSnap] = await Promise.all([
+    getDocs(collection(db, 'appointments')),
+    getDocs(collection(db, 'inquiries')),
+    getDocs(collection(db, 'users')),
+  ]);
 
   const appointments = appointmentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const inquiries = inquiriesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const inquiries    = inquiriesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
   // Today's date string (YYYY-MM-DD)
   const today = new Date().toISOString().split('T')[0];
+  const now   = new Date();
 
-  const totalPatients = appointments.length;
-  const todayAppointments = appointments.filter(a => a.date === today).length;
-  const pendingApprovals = appointments.filter(a => a.status === 'pending').length;
-  const totalInquiries = inquiries.length;
+  // ── Stats ──────────────────────────────────────────────────────
+  // Total patients = real registered users (not appointment count)
+  const totalPatients      = usersSnap.size;
+  const todayAppointments  = appointments.filter(a => a.date === today).length;
+  const pendingApprovals   = appointments.filter(a => a.status === 'pending').length;
+  const totalInquiries     = inquiries.length;
 
-  // Patients per month (last 12 months)
+  // ── Monthly chart (last 12 months, based on appointment createdAt) ──
   const monthMap = {};
-  const now = new Date();
   for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const d     = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key   = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     const label = d.toLocaleString('default', { month: 'short', year: '2-digit' });
     monthMap[key] = { month: label, count: 0 };
   }
 
   appointments.forEach(a => {
     if (a.createdAt) {
-      const ts = a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+      const ts  = a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
       const key = `${ts.getFullYear()}-${String(ts.getMonth() + 1).padStart(2, '0')}`;
       if (monthMap[key]) monthMap[key].count++;
     }
@@ -114,9 +119,13 @@ export async function getDashboardStats() {
 
   const monthlyData = Object.values(monthMap);
 
-  // Upcoming appointments (next 5 by date)
+  // ── Upcoming appointments: accepted status + future date (next 5) ──
   const upcoming = appointments
-    .filter(a => a.date >= today && a.status !== 'rejected' && a.status !== 'cancelled')
+    .filter(a => {
+      if (a.status !== 'accepted') return false;
+      // Compare date string — if date is today or future
+      return a.date >= today;
+    })
     .sort((a, b) => {
       if (a.date === b.date) return (a.time || '').localeCompare(b.time || '');
       return a.date.localeCompare(b.date);

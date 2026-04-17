@@ -11,7 +11,7 @@ export default function AdminLogin() {
   const [resetEmail, setResetEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
-  const { login, checkAdminStatus, checkUserStatus, promoteToAdmin, logout, sendAdminPasswordReset } = useAuth();
+  const { login, checkAdminStatus, checkUserStatus, promoteToAdmin, logout, sendAdminPasswordReset, ADMIN_EMAILS } = useAuth();
   const navigate = useNavigate();
 
   // ── Login handler ─────────────────────────────────────────────
@@ -20,28 +20,28 @@ export default function AdminLogin() {
     setLoading(true);
     try {
       const res = await login(form.email, form.password);
-      
-      let isAdmin = await checkAdminStatus(res.user);
-      const isUser = await checkUserStatus(res.user);
+      const user = res.user;
 
-      if (!isAdmin && !isUser) {
-        await promoteToAdmin(res.user);
-        isAdmin = true;
-      }
-      
-      if (!isAdmin && isUser) {
-        toast.error('You are registered as a Patient, so you cannot access the Admin portal.');
-        await logout();
-        setLoading(false);
-        return;
-      }
+      // Step 1: Check if UID exists in Firestore 'admins' collection
+      let isAdmin = await checkAdminStatus(user);
 
+      // Step 2: If not found in DB, check if email is in whitelist → auto-create record
       if (!isAdmin) {
-        toast.error('Unauthorized — Admin access only');
+        const isWhitelisted = ADMIN_EMAILS.includes(user.email?.toLowerCase());
+        if (isWhitelisted) {
+          await promoteToAdmin(user);
+          isAdmin = true;
+        }
+      }
+
+      // Step 3: If still not admin → Access Denied
+      if (!isAdmin) {
+        toast.error('Access denied. Not an admin.');
         await logout();
         setLoading(false);
         return;
       }
+
       toast.success('Welcome, Admin!');
       navigate('/admin/dashboard');
     } catch (err) {
