@@ -12,6 +12,7 @@ import AdminLogin from './pages/AdminLogin';
 import AdminPanel from './pages/admin/AdminPanel';
 import ProtectedRoute from './components/ProtectedRoute';
 import UserProtectedRoute from './components/UserProtectedRoute';
+import SessionManager from './components/SessionManager';
 
 function WithNav({ children }) {
   return (
@@ -25,14 +26,16 @@ function WithNav({ children }) {
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <SessionManager />
+      <Routes>
       <Route path="/" element={<WithNav><Home /></WithNav>} />
       <Route path="/login" element={<WithNav><Login /></WithNav>} />
       <Route path="/signup" element={<WithNav><Signup /></WithNav>} />
       <Route path="/book" element={<UserProtectedRoute><WithNav><BookAppointment /></WithNav></UserProtectedRoute>} />
       <Route path="/services" element={<WithNav><Services /></WithNav>} />
       <Route path="/doctors" element={<WithNav><Doctors /></WithNav>} />
-      <Route path="/user/dashboard" element={<UserProtectedRoute><WithNav><Dashboard /></WithNav></UserProtectedRoute>} />
+      <Route path="/dashboard" element={<UserProtectedRoute><WithNav><Dashboard /></WithNav></UserProtectedRoute>} />
       <Route path="/admin" element={<AdminLogin />} />
       <Route
         path="/admin/dashboard"
@@ -43,5 +46,6 @@ export default function App() {
         }
       />
     </Routes>
+    </>
   );
 }

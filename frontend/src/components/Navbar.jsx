@@ -8,7 +8,7 @@ import styles from './Navbar.module.css';
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { currentUser, logout } = useAuth();
+  const { currentUser, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -119,9 +119,9 @@ export default function Navbar() {
         <div className={styles.actions}>
           {currentUser ? (
             <>
-              <Link to="/user/dashboard" className={styles.userBtn}>
+              <Link to={isAdmin ? "/admin/dashboard" : "/dashboard"} className={styles.userBtn}>
                 <FiUser size={14} />
-                {currentUser.displayName?.split(' ')[0] || 'Dashboard'}
+                {isAdmin ? 'Admin' : (currentUser.displayName?.split(' ')[0] || 'Dashboard')}
               </Link>
               <button onClick={handleLogout} className={styles.logoutBtn} title="Logout">
                 <FiLogOut size={15} />
@@ -163,7 +163,9 @@ export default function Navbar() {
             ))}
             {currentUser ? (
               <>
-                <Link to="/user/dashboard" className={styles.mobileLink}>Dashboard</Link>
+                <Link to={isAdmin ? "/admin/dashboard" : "/dashboard"} className={styles.mobileLink}>
+                  {isAdmin ? 'Admin Panel' : 'Dashboard'}
+                </Link>
                 <button onClick={handleLogout} className={styles.mobileLink}
                   style={{ background: 'none', border: 'none', textAlign: 'left', width: '100%', color: '#ef4444', cursor: 'pointer' }}>Logout</button>
               </>

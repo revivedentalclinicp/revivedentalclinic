@@ -29,7 +29,7 @@ export default function Signup() {
         return;
       }
       toast.success('Account created! Welcome 🦷');
-      navigate('/user/dashboard');
+      navigate('/dashboard');
     } catch (err) {
       toast.error(err.message.replace('Firebase:', '').trim());
     }
@@ -46,7 +46,7 @@ export default function Signup() {
         return;
       }
       toast.success('Signed in with Google!');
-      navigate('/user/dashboard');
+      navigate('/dashboard');
     } catch { toast.error('Google sign-in failed'); }
   }
 

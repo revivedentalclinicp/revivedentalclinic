@@ -32,7 +32,7 @@ export default function Login() {
         return;
       }
       toast.success('Welcome back!');
-      navigate('/user/dashboard');
+      navigate('/dashboard');
     } catch (err) {
       toast.error(err.message.replace('Firebase:', '').trim());
     }
@@ -49,7 +49,7 @@ export default function Login() {
         return;
       }
       toast.success('Signed in with Google!');
-      navigate('/user/dashboard');
+      navigate('/dashboard');
     } catch { toast.error('Google sign-in failed'); }
   }
 

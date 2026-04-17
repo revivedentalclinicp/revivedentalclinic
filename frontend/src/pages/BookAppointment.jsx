@@ -107,7 +107,7 @@ export default function BookAppointment() {
       } catch { /* don't fail booking if email fails */ }
 
       toast.success('Appointment booked! We\'ll confirm shortly 🦷');
-      navigate('/user/dashboard');
+      navigate('/dashboard');
     } catch (err) {
       toast.error(err.message || 'Booking failed. Please try again.');
     }
