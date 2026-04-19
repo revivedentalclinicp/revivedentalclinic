@@ -12,6 +12,7 @@ const STATUS_COLORS = {
   rejected:    { bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
   rescheduled: { bg: '#ECEDF8', color: '#3B3F97', border: '#B0B2DA' },
   cancelled:   { bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0' },
+  completed:   { bg: '#f3e8ff', color: '#7e22ce', border: '#d8b4fe' },
 };
 
 const TIMES = ['09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM'];
@@ -21,6 +22,8 @@ export default function AdminAppointments() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterSource, setFilterSource] = useState('all');
+  const [filterDate, setFilterDate] = useState('');
   const [rescheduleModal, setRescheduleModal] = useState(null);
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('');
@@ -108,12 +111,28 @@ export default function AdminAppointments() {
 
   const filtered = appointments.filter(a => {
     const matchStatus = filterStatus === 'all' || a.status === filterStatus;
+    const matchSource = filterSource === 'all' || (a.source || 'website') === filterSource;
+    const matchDate   = !filterDate || a.date === filterDate;
     const matchSearch =
       (a.name || '').toLowerCase().includes(search.toLowerCase()) ||
       (a.phone || '').includes(search) ||
       (a.email || '').toLowerCase().includes(search.toLowerCase()) ||
       (a.doctor || '').toLowerCase().includes(search.toLowerCase());
-    return matchStatus && matchSearch;
+    return matchStatus && matchSource && matchDate && matchSearch;
+  }).sort((a, b) => {
+    // Sort by Date Descending
+    if (a.date !== b.date) return (b.date || '').localeCompare(a.date || '');
+    
+    // Tie-breaker: Time Descending
+    const parseTime = (t) => {
+      const p = (t || '12:00 AM').match(/(\d+):(\d+)\s(AM|PM)/i);
+      if (!p) return 0;
+      let h = parseInt(p[1]);
+      if (p[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+      if (p[3].toUpperCase() === 'AM' && h === 12) h = 0;
+      return h * 60 + parseInt(p[2]);
+    };
+    return parseTime(b.time) - parseTime(a.time);
   });
 
   if (loading) {
@@ -145,7 +164,31 @@ export default function AdminAppointments() {
             <option value="rejected">Rejected</option>
             <option value="rescheduled">Rescheduled</option>
             <option value="cancelled">Cancelled</option>
+            <option value="completed">Completed</option>
           </select>
+          {/* Source filter */}
+          <select
+            value={filterSource}
+            onChange={e => setFilterSource(e.target.value)}
+            className="form-control"
+            style={{ width: 'auto', fontSize: '0.85rem', padding: '7px 12px' }}
+          >
+            <option value="all">All Sources</option>
+            <option value="website">Website</option>
+            <option value="call">Call</option>
+            <option value="whatsapp">WhatsApp</option>
+          </select>
+          {/* Date filter */}
+          <input
+            type="date"
+            value={filterDate}
+            onChange={e => setFilterDate(e.target.value)}
+            className="form-control"
+            style={{ width: 'auto', fontSize: '0.85rem', padding: '7px 12px' }}
+          />
+          {filterDate && (
+             <button onClick={() => setFilterDate('')} className="btn-secondary" style={{ padding: '7px 12px', fontSize: '0.85rem' }}>Clear</button>
+          )}
           {/* Search */}
           <div style={{ position: 'relative' }}>
             <FiSearch size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
@@ -172,6 +215,7 @@ export default function AdminAppointments() {
           { label: 'Total', count: appointments.length, color: '#64748b', bg: '#f1f5f9' },
           { label: 'Pending', count: appointments.filter(a => a.status === 'pending').length, color: '#d97706', bg: '#fffbeb' },
           { label: 'Accepted', count: appointments.filter(a => a.status === 'accepted').length, color: '#16a34a', bg: '#f0fdf4' },
+          { label: 'Completed', count: appointments.filter(a => a.status === 'completed').length, color: '#7e22ce', bg: '#f3e8ff' },
           { label: 'Rejected', count: appointments.filter(a => a.status === 'rejected').length, color: '#dc2626', bg: '#fef2f2' },
         ].map(({ label, count, color, bg }) => (
           <div key={label} style={{

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getDashboardStats } from '../../services/adminService';
+import { subscribeDashboardStats } from '../../services/adminService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { FiUsers, FiCalendar, FiClock, FiMessageSquare } from 'react-icons/fi';
 import toast from 'react-hot-toast';
@@ -16,18 +16,12 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchStats();
-  }, []);
-
-  async function fetchStats() {
-    try {
-      const data = await getDashboardStats();
+    const unsub = subscribeDashboardStats((data) => {
       setStats(data);
-    } catch (err) {
-      toast.error('Failed to load dashboard data');
-    }
-    setLoading(false);
-  }
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
 
   if (loading) {
     return (
@@ -128,10 +122,20 @@ export default function AdminDashboard() {
                   key={a.id || i}
                   style={{
                     padding: '14px 16px', borderRadius: 10,
-                    border: '1px solid #f1f5f9', background: '#fafbfc',
-                    transition: 'all 0.15s',
+                    border: i === 0 ? '2px solid #F58220' : '1px solid #f1f5f9',
+                    background: i === 0 ? '#FEF3E4' : '#fafbfc',
+                    transition: 'all 0.15s', position: 'relative'
                   }}
                 >
+                  {i === 0 && (
+                    <div style={{
+                      position: 'absolute', top: -10, left: 16, background: '#F58220',
+                      color: '#fff', fontSize: '0.65rem', fontWeight: 800, padding: '2px 8px',
+                      borderRadius: 12, textTransform: 'uppercase', letterSpacing: 0.5
+                    }}>
+                      Nearest
+                    </div>
+                  )}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                     <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0f172a' }}>
                       {a.name || 'Patient'}

@@ -16,10 +16,36 @@ export async function getAllAppointments() {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+function autoCompletePastAppointments(appointments) {
+  const now = new Date();
+  appointments.forEach(a => {
+    if (a.status === 'accepted' || a.status === 'rescheduled') {
+      if (a.date && a.time) {
+        const timeParts = a.time.match(/(\d+):(\d+)\s(AM|PM)/i);
+        if (timeParts) {
+          let hours = parseInt(timeParts[1]);
+          const mins = parseInt(timeParts[2]);
+          const period = timeParts[3].toUpperCase();
+          if (period === 'PM' && hours !== 12) hours += 12;
+          if (period === 'AM' && hours === 12) hours = 0;
+          const dt = new Date(`${a.date}T00:00:00`);
+          dt.setHours(hours, mins, 0, 0);
+          
+          if (dt < now) {
+            updateAppointmentStatus(a.id, 'completed').catch(console.warn);
+          }
+        }
+      }
+    }
+  });
+}
+
 export function subscribeAllAppointments(callback) {
   const q = query(collection(db, 'appointments'), orderBy('createdAt', 'desc'));
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    autoCompletePastAppointments(data);
+    callback(data);
   });
 }
 
@@ -106,65 +132,99 @@ export async function deleteFAQ(id) {
 }
 
 // ─── DASHBOARD STATS ────────────────────────
-export async function getDashboardStats() {
-  const [appointmentsSnap, inquiriesSnap, usersSnap] = await Promise.all([
-    getDocs(collection(db, 'appointments')),
-    getDocs(collection(db, 'inquiries')),
-    getDocs(collection(db, 'users')),
-  ]);
+export function subscribeDashboardStats(callback) {
+  let appointments = [];
+  let inquiries = [];
 
-  const appointments = appointmentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const inquiries    = inquiriesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const checkEmit = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
 
-  // Today's date string (YYYY-MM-DD)
-  const today = new Date().toISOString().split('T')[0];
-  const now   = new Date();
+    // Unique Patients logic (grouped by phone -> email -> userId -> name)
+    const patientMap = new Map();
+    appointments.forEach(a => {
+      const key = a.phone || a.email || a.userId || a.name;
+      if (key && !patientMap.has(key)) patientMap.set(key, true);
+    });
+    const totalPatients = patientMap.size;
 
-  // ── Stats ──────────────────────────────────────────────────────
-  // Total patients = real registered users (not appointment count)
-  const totalPatients      = usersSnap.size;
-  const todayAppointments  = appointments.filter(a => a.date === today).length;
-  const pendingApprovals   = appointments.filter(a => a.status === 'pending').length;
-  const totalInquiries     = inquiries.length;
+    const todayAppointments = appointments.filter(a => a.date === today && (a.status === 'pending' || a.status === 'accepted' || a.status === 'rescheduled')).length;
+    const pendingApprovals = appointments.filter(a => a.status === 'pending').length;
+    const totalInquiries = inquiries.length;
 
-  // ── Monthly chart (last 12 months, based on appointment createdAt) ──
-  const monthMap = {};
-  for (let i = 11; i >= 0; i--) {
-    const d     = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key   = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const label = d.toLocaleString('default', { month: 'short', year: '2-digit' });
-    monthMap[key] = { month: label, count: 0 };
-  }
-
-  appointments.forEach(a => {
-    if (a.createdAt) {
-      const ts  = a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-      const key = `${ts.getFullYear()}-${String(ts.getMonth() + 1).padStart(2, '0')}`;
-      if (monthMap[key]) monthMap[key].count++;
+    // Monthly chart
+    const monthMap = {};
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleString('default', { month: 'short', year: '2-digit' });
+      monthMap[key] = { month: label, count: 0 };
     }
+    appointments.forEach(a => {
+      if (a.createdAt) {
+        const ts = a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+        const key = `${ts.getFullYear()}-${String(ts.getMonth() + 1).padStart(2, '0')}`;
+        if (monthMap[key]) monthMap[key].count++;
+      }
+    });
+
+    const monthlyData = Object.values(monthMap);
+
+    // Upcoming appointments
+    const upcoming = appointments
+      .filter(a => {
+        if (a.status !== 'accepted' && a.status !== 'rescheduled') return false;
+        
+        // Ensure accurate date-time combination
+        const timeStr = a.time || '12:00 AM';
+        const timeParts = timeStr.match(/(\d+):(\d+)\s(AM|PM)/i);
+        let dt = new Date(`${a.date}T00:00:00`);
+        if (timeParts) {
+          let h = parseInt(timeParts[1]);
+          if (timeParts[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+          if (timeParts[3].toUpperCase() === 'AM' && h === 12) h = 0;
+          dt.setHours(h, parseInt(timeParts[2]), 0, 0);
+        }
+        return dt >= now;
+      })
+      .sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        
+        const parseTime = (t) => {
+          const p = (t || '12:00 AM').match(/(\d+):(\d+)\s(AM|PM)/i);
+          if (!p) return 0;
+          let h = parseInt(p[1]);
+          if (p[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+          if (p[3].toUpperCase() === 'AM' && h === 12) h = 0;
+          return h * 60 + parseInt(p[2]);
+        };
+        return parseTime(a.time) - parseTime(b.time);
+      })
+      .slice(0, 5);
+
+    callback({
+      totalPatients,
+      todayAppointments,
+      pendingApprovals,
+      totalInquiries,
+      monthlyData,
+      upcoming,
+    });
+  };
+
+  const unsubAppts = onSnapshot(query(collection(db, 'appointments')), (snap) => {
+    appointments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    autoCompletePastAppointments(appointments); // Trigger silent sweeping
+    checkEmit();
   });
 
-  const monthlyData = Object.values(monthMap);
+  const unsubInq = onSnapshot(query(collection(db, 'inquiries')), (snap) => {
+    inquiries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    checkEmit();
+  });
 
-  // ── Upcoming appointments: accepted status + future date (next 5) ──
-  const upcoming = appointments
-    .filter(a => {
-      if (a.status !== 'accepted') return false;
-      // Compare date string — if date is today or future
-      return a.date >= today;
-    })
-    .sort((a, b) => {
-      if (a.date === b.date) return (a.time || '').localeCompare(b.time || '');
-      return a.date.localeCompare(b.date);
-    })
-    .slice(0, 5);
-
-  return {
-    totalPatients,
-    todayAppointments,
-    pendingApprovals,
-    totalInquiries,
-    monthlyData,
-    upcoming,
+  return () => {
+    unsubAppts();
+    unsubInq();
   };
 }
