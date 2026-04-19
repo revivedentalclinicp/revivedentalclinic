@@ -90,7 +90,7 @@ export default function AdminDashboard() {
           <p style={{ color: '#94a3b8', fontSize: '0.82rem', marginBottom: 24 }}>
             Based on appointment bookings (last 12 months)
           </p>
-          <div style={{ width: '100%', height: 280 }}>
+          <div style={{ width: '100%', height: 280, minWidth: 0, minHeight: 280 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stats.monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />

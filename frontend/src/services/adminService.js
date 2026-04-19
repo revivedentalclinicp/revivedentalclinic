@@ -7,6 +7,7 @@ import {
   query, orderBy, where, serverTimestamp, getCountFromServer, onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { checkSlotAvailability } from './appointmentService';
 
 // ─── APPOINTMENTS ───────────────────────────
 export async function getAllAppointments() {
@@ -35,6 +36,32 @@ export async function rescheduleAppointment(id, date, time) {
     status: 'rescheduled',
     updatedAt: serverTimestamp(),
   });
+}
+
+export async function addManualAppointment(data) {
+  const doctor = data.doctor || "Dr. Ajay Giri";
+
+  // Prevent double booking!
+  const available = await checkSlotAvailability(doctor, data.date, data.time);
+  if (!available) {
+    throw new Error('This time slot is already booked. Please choose another.');
+  }
+
+  const payload = {
+    userId: data.adminId || "manual_entry",
+    name: data.name,
+    phone: data.phone,
+    email: data.email || "",
+    doctor: doctor,
+    date: data.date,
+    time: data.time,
+    reason: data.reason || "",
+    status: "accepted", // Automatically approved per requirements to ensure UI integration
+    createdAt: serverTimestamp(),
+    source: data.source || "manual", // e.g. "whatsapp", "call"
+  };
+  const ref = await addDoc(collection(db, 'appointments'), payload);
+  return ref.id;
 }
 
 // ─── INQUIRIES ──────────────────────────────

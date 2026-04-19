@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import {
   FiGrid, FiCalendar, FiMessageSquare, FiHelpCircle,
-  FiLogOut, FiMenu, FiX, FiUsers,
+  FiLogOut, FiMenu, FiX, FiUsers, FiHome
 } from 'react-icons/fi';
 import AdminDashboard from './AdminDashboard';
 import AdminAppointments from './AdminAppointments';
@@ -78,11 +79,16 @@ export default function AdminPanel() {
           borderBottom: '1px solid #f1f5f9',
           display: 'flex', alignItems: 'center', gap: 10,
         }}>
-          <div style={{
+          <div 
+            onClick={() => toast('👋 Welcome, Revive Dental Speciality Clinic!', { 
+              style: { borderRadius: '10px', background: '#3B3F97', color: '#fff', fontWeight: 600 }
+            })}
+            style={{
             width: 40, height: 40, borderRadius: 10,
             background: 'linear-gradient(135deg, #3B3F97, #2E3192)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
+            flexShrink: 0, cursor: 'pointer',
+            boxShadow: '0 4px 10px rgba(46,49,146,0.3)'
           }}>
             <img src="/logo.svg" alt="Revive" style={{ width: 28, height: 28, borderRadius: 6 }} />
           </div>
@@ -147,6 +153,18 @@ export default function AdminPanel() {
               }}>{currentUser?.email}</div>
             </div>
           </div>
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+              padding: '9px 14px', borderRadius: 8, border: '1px solid #e2e8f0',
+              background: '#f8fafc', color: '#475569', fontWeight: 600,
+              fontSize: '0.82rem', cursor: 'pointer', transition: 'all 0.18s',
+              marginBottom: 8
+            }}
+          >
+            <FiHome size={15} /> Website Home
+          </button>
           <button
             onClick={handleLogout}
             style={{

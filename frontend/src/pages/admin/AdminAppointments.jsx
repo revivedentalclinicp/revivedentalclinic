@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { subscribeAllAppointments, updateAppointmentStatus, rescheduleAppointment } from '../../services/adminService';
+import { subscribeAllAppointments, updateAppointmentStatus, rescheduleAppointment, addManualAppointment } from '../../services/adminService';
+import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { FiCheck, FiX, FiClock, FiSearch, FiMail, FiPhone } from 'react-icons/fi';
 
@@ -24,6 +25,14 @@ export default function AdminAppointments() {
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('');
   const [actionLoading, setActionLoading] = useState(null); // appointmentId
+  
+  const { currentUser } = useAuth();
+  
+  const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    name: '', phone: '', email: '', date: '', time: '', reason: '', source: 'call'
+  });
+  const [manualLoading, setManualLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -79,6 +88,24 @@ export default function AdminAppointments() {
     } catch { toast.error('Failed to reschedule'); }
   }
 
+  async function handleAddManualAppointment(e) {
+    e.preventDefault();
+    if (!manualForm.name || !manualForm.phone || !manualForm.date || !manualForm.time) {
+      toast.error('Please fill required fields');
+      return;
+    }
+    setManualLoading(true);
+    try {
+      await addManualAppointment({ ...manualForm, adminId: currentUser?.uid });
+      toast.success('Appointment added manually');
+      setManualModalOpen(false);
+      setManualForm({ name: '', phone: '', email: '', date: '', time: '', reason: '', source: 'call' });
+    } catch (err) {
+      toast.error(err.message || 'Failed to add appointment');
+    }
+    setManualLoading(false);
+  }
+
   const filtered = appointments.filter(a => {
     const matchStatus = filterStatus === 'all' || a.status === filterStatus;
     const matchSearch =
@@ -129,6 +156,13 @@ export default function AdminAppointments() {
               style={{ paddingLeft: 32, width: 260, fontSize: '0.85rem' }}
             />
           </div>
+          <button
+            onClick={() => setManualModalOpen(true)}
+            className="btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: '0.85rem' }}
+          >
+            + Add Appointment
+          </button>
         </div>
       </div>
 
@@ -156,7 +190,7 @@ export default function AdminAppointments() {
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                {['Patient', 'Contact', 'Doctor', 'Date', 'Time', 'Reason', 'Status', 'Actions'].map(h => (
+                {['Patient', 'Contact', 'Doctor', 'Date', 'Time', 'Reason', 'Status', 'Source', 'Actions'].map(h => (
                   <th key={h} style={{
                     textAlign: 'left', padding: '14px 16px', fontSize: '0.72rem',
                     fontWeight: 700, color: '#94a3b8', letterSpacing: 0.5, textTransform: 'uppercase',
@@ -222,6 +256,16 @@ export default function AdminAppointments() {
                           whiteSpace: 'nowrap',
                         }}>
                           {a.status}
+                        </span>
+                      </td>
+                      {/* Source */}
+                      <td style={{ padding: '14px 16px' }}>
+                        <span style={{
+                          padding: '3px 8px', borderRadius: 4, fontSize: '0.7rem',
+                          background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0',
+                          fontWeight: 600, display: 'inline-block', whiteSpace: 'nowrap'
+                        }}>
+                          {a.source === 'call' ? '📞 Call' : a.source === 'whatsapp' ? '💬 WhatsApp' : '🌐 Website'}
                         </span>
                       </td>
                       {/* Actions */}
@@ -346,6 +390,90 @@ export default function AdminAppointments() {
                 Confirm Reschedule
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Manual Add Modal ── */}
+      {manualModalOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: 24,
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 16, padding: '32px',
+            maxWidth: 500, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            maxHeight: '90vh', overflowY: 'auto'
+          }}>
+            <h3 style={{ fontWeight: 800, fontSize: '1.1rem', color: '#0f172a', marginBottom: 20 }}>
+              Manual Appointment Entry
+            </h3>
+            <form onSubmit={handleAddManualAppointment}>
+              <div className="form-group">
+                <label>Patient Name *</label>
+                <input required type="text" className="form-control" value={manualForm.name} onChange={e => setManualForm({...manualForm, name: e.target.value})} placeholder="e.g. John Doe" />
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>Phone Number *</label>
+                  <input required type="tel" className="form-control" value={manualForm.phone} onChange={e => setManualForm({...manualForm, phone: e.target.value})} placeholder="e.g. 9876543210" />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>Email (Optional)</label>
+                  <input type="email" className="form-control" value={manualForm.email} onChange={e => setManualForm({...manualForm, email: e.target.value})} placeholder="e.g. john@email.com" />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>Date *</label>
+                  <input required type="date" className="form-control" min={new Date().toISOString().split('T')[0]} value={manualForm.date} onChange={e => setManualForm({...manualForm, date: e.target.value})} />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>Time *</label>
+                  <select required className="form-control" value={manualForm.time} onChange={e => setManualForm({...manualForm, time: e.target.value})}>
+                    <option value="">Select time...</option>
+                    {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Reason (Optional)</label>
+                <input type="text" className="form-control" value={manualForm.reason} onChange={e => setManualForm({...manualForm, reason: e.target.value})} placeholder="e.g. routine checkup" />
+              </div>
+              <div className="form-group">
+                <label>Contact Source</label>
+                <select className="form-control" value={manualForm.source} onChange={e => setManualForm({...manualForm, source: e.target.value})}>
+                  <option value="call">Call</option>
+                  <option value="whatsapp">WhatsApp</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManualModalOpen(false);
+                    setManualForm({ name: '', phone: '', email: '', date: '', time: '', reason: '', source: 'call' });
+                  }}
+                  style={{
+                    flex: 1, padding: '10px', borderRadius: 8,
+                    border: '1px solid #e2e8f0', background: '#fff',
+                    color: '#475569', fontWeight: 600, cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={manualLoading}
+                  className="btn-primary"
+                  style={{ flex: 1, justifyContent: 'center', padding: '10px' }}
+                >
+                  {manualLoading ? 'Saving...' : 'Confirm Appointment'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
