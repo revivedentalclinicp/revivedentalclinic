@@ -4,10 +4,11 @@
  */
 import {
   collection, addDoc, getDocs, updateDoc, deleteDoc, doc,
-  query, orderBy, where, serverTimestamp, getCountFromServer, onSnapshot,
+  query, orderBy, where, serverTimestamp, getCountFromServer, onSnapshot, deleteField
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { checkSlotAvailability } from './appointmentService';
+import { addNotification } from './notificationService';
 
 // ─── APPOINTMENTS ───────────────────────────
 export async function getAllAppointments() {
@@ -49,12 +50,18 @@ export function subscribeAllAppointments(callback) {
   });
 }
 
-export async function updateAppointmentStatus(id, status) {
+export async function updateAppointmentStatus(id, status, userId) {
   const ref = doc(db, 'appointments', id);
   await updateDoc(ref, { status, updatedAt: serverTimestamp() });
+  if (userId) {
+    let msg = `Your appointment status was updated to ${status}.`;
+    if (status === 'accepted') msg = 'Your appointment has been approved!';
+    if (status === 'rejected') msg = 'Your appointment has been cancelled by the clinic.';
+    await addNotification(userId, msg, 'appointment');
+  }
 }
 
-export async function rescheduleAppointment(id, date, time) {
+export async function rescheduleAppointment(id, date, time, userId) {
   const ref = doc(db, 'appointments', id);
   await updateDoc(ref, {
     date,
@@ -62,6 +69,32 @@ export async function rescheduleAppointment(id, date, time) {
     status: 'rescheduled',
     updatedAt: serverTimestamp(),
   });
+  if (userId) {
+    await addNotification(userId, `Your appointment was rescheduled to ${date} at ${time}.`, 'appointment');
+  }
+}
+
+export async function processRescheduleRequest(id, action, newDate, newTime, userId) {
+  const ref = doc(db, 'appointments', id);
+  if (action === 'approve') {
+    await updateDoc(ref, {
+      date: newDate,
+      time: newTime,
+      status: 'accepted',
+      newRequestedDate: deleteField(),
+      newRequestedTime: deleteField(),
+      updatedAt: serverTimestamp()
+    });
+    if (userId) await addNotification(userId, `Your reschedule request for ${newDate} at ${newTime} was approved!`, 'appointment');
+  } else {
+    await updateDoc(ref, {
+      status: 'accepted',
+      newRequestedDate: deleteField(),
+      newRequestedTime: deleteField(),
+      updatedAt: serverTimestamp()
+    });
+    if (userId) await addNotification(userId, `Your reschedule request was declined. Your originally scheduled time is kept.`, 'appointment');
+  }
 }
 
 export async function addManualAppointment(data) {
@@ -135,18 +168,11 @@ export async function deleteFAQ(id) {
 export function subscribeDashboardStats(callback) {
   let appointments = [];
   let inquiries = [];
+  let totalPatients = 0;
 
   const checkEmit = () => {
     const today = new Date().toISOString().split('T')[0];
     const now = new Date();
-
-    // Unique Patients logic (grouped by phone -> email -> userId -> name)
-    const patientMap = new Map();
-    appointments.forEach(a => {
-      const key = a.phone || a.email || a.userId || a.name;
-      if (key && !patientMap.has(key)) patientMap.set(key, true);
-    });
-    const totalPatients = patientMap.size;
 
     const todayAppointments = appointments.filter(a => a.date === today && (a.status === 'pending' || a.status === 'accepted' || a.status === 'rescheduled')).length;
     const pendingApprovals = appointments.filter(a => a.status === 'pending').length;
@@ -223,8 +249,14 @@ export function subscribeDashboardStats(callback) {
     checkEmit();
   });
 
+  const unsubUsers = onSnapshot(query(collection(db, 'users')), (snap) => {
+    totalPatients = snap.size;
+    checkEmit();
+  });
+
   return () => {
     unsubAppts();
     unsubInq();
+    unsubUsers();
   };
 }

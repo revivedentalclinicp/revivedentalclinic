@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { subscribeAllAppointments, updateAppointmentStatus, rescheduleAppointment, addManualAppointment } from '../../services/adminService';
+import { subscribeAllAppointments, updateAppointmentStatus, rescheduleAppointment, addManualAppointment, processRescheduleRequest } from '../../services/adminService';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { FiCheck, FiX, FiClock, FiSearch, FiMail, FiPhone } from 'react-icons/fi';
@@ -72,7 +72,7 @@ export default function AdminAppointments() {
   async function handleStatusChange(appointment, status) {
     setActionLoading(appointment.id);
     try {
-      await updateAppointmentStatus(appointment.id, status);
+      await updateAppointmentStatus(appointment.id, status, appointment.userId);
       toast.success(`Appointment ${status === 'accepted' ? 'approved ✓' : 'rejected'}`);
       // Send email to patient
       await sendUserEmail(appointment, status);
@@ -83,12 +83,21 @@ export default function AdminAppointments() {
   async function handleReschedule() {
     if (!newDate || !newTime) { toast.error('Pick date and time'); return; }
     try {
-      await rescheduleAppointment(rescheduleModal.id, newDate, newTime);
+      await rescheduleAppointment(rescheduleModal.id, newDate, newTime, rescheduleModal.userId);
       toast.success('Appointment rescheduled');
       setRescheduleModal(null);
       setNewDate('');
       setNewTime('');
     } catch { toast.error('Failed to reschedule'); }
+  }
+
+  async function handleProcessReschedule(appointment, action) {
+    setActionLoading(appointment.id);
+    try {
+      await processRescheduleRequest(appointment.id, action, appointment.newRequestedDate, appointment.newRequestedTime, appointment.userId);
+      toast.success(`Reschedule request ${action === 'approve' ? 'approved ✓' : 'rejected'}`);
+    } catch { toast.error('Failed to process reschedule'); }
+    setActionLoading(null);
   }
 
   async function handleAddManualAppointment(e) {
@@ -369,6 +378,40 @@ export default function AdminAppointments() {
                             >
                               <FiClock size={13} /> Reschedule
                             </button>
+                          )}
+                          {a.status === 'reschedule_requested' && (
+                            <>
+                              <div style={{ width: '100%', fontSize: '0.75rem', color: '#c026d3', fontWeight: 600, marginBottom: 4 }}>
+                                Requested: {new Date(a.newRequestedDate).toLocaleDateString()} at {a.newRequestedTime}
+                              </div>
+                              <button
+                                onClick={() => handleProcessReschedule(a, 'approve')}
+                                disabled={isActing}
+                                style={{
+                                  padding: '5px 12px', borderRadius: 6,
+                                  border: '1px solid #f5d0fe', background: '#fdf4ff',
+                                  color: '#c026d3', fontWeight: 600, fontSize: '0.78rem',
+                                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                                  opacity: isActing ? 0.6 : 1,
+                                }}
+                              >
+                                {isActing ? <span className="spinner" style={{ width: 12, height: 12, borderWidth: 2, borderColor: '#f5d0fe', borderTopColor: '#c026d3' }} /> : <FiCheck size={13} />}
+                                Approve Request
+                              </button>
+                              <button
+                                onClick={() => handleProcessReschedule(a, 'reject')}
+                                disabled={isActing}
+                                style={{
+                                  padding: '5px 12px', borderRadius: 6,
+                                  border: '1px solid #fecaca', background: '#fef2f2',
+                                  color: '#dc2626', fontWeight: 600, fontSize: '0.78rem',
+                                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                                  opacity: isActing ? 0.6 : 1,
+                                }}
+                              >
+                                <FiX size={13} /> Reject Request
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>

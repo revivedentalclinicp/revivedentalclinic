@@ -74,11 +74,11 @@ export async function createAppointment(data) {
 export async function getAppointments(userId) {
   const q = query(
     collection(db, COL),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
+    where('userId', '==', userId)
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return docs.sort((a,b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
 }
 
 /**
@@ -87,12 +87,15 @@ export async function getAppointments(userId) {
 export function subscribeAppointments(userId, callback) {
   const q = query(
     collection(db, COL),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
+    where('userId', '==', userId)
   );
   return onSnapshot(q, (snap) => {
     const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    data.sort((a,b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
     callback(data);
+  }, (err) => {
+    console.error('Failed to substitute appointments:', err);
+    callback([]); // Fallback to unlock loading states
   });
 }
 
@@ -103,4 +106,13 @@ export async function cancelAppointment(id) {
   const ref = doc(db, COL, id);
   await updateDoc(ref, { status: 'cancelled', updatedAt: serverTimestamp() });
   return { id, status: 'cancelled' };
+}
+
+/**
+ * Generic update for an appointment (e.g., reschedule requests)
+ */
+export async function updateAppointment(id, data) {
+  const ref = doc(db, COL, id);
+  await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
+  return { id, ...data };
 }
