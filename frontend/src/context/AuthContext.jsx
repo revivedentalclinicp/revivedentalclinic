@@ -73,15 +73,8 @@ export function AuthProvider({ children }) {
       });
       // Send welcome email to new Google users
       try {
-        await fetch(`${BACKEND_URL}/api/email/welcome`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userEmail: res.user.email,
-            userName: res.user.displayName,
-          }),
-        });
-      } catch (e) { /* ignore email errors */ }
+        console.log("Email notification skipped");
+      } catch (e) { /* ignore */ }
     }
     return res;
   }

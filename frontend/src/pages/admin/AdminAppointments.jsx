@@ -52,18 +52,7 @@ export default function AdminAppointments() {
   async function sendUserEmail(appointment, status) {
     if (!appointment.email) return;
     try {
-      await fetch(`${BACKEND_URL}/api/email/notify-user`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userEmail: appointment.email,
-          userName:  appointment.name || 'Patient',
-          status,
-          date:      appointment.date,
-          time:      appointment.time,
-          doctor:    appointment.doctor,
-        }),
-      });
+      console.log('Email notification skipped');
     } catch (e) {
       console.warn('Email notification failed:', e.message);
     }
