@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { admin, db } = require('./config/firebase');
+const { sendEmail } = require('./services/emailService');
 
 const app = express();
 app.use(cors());
@@ -118,21 +119,110 @@ app.delete('/api/appointments/:id', async (req, res) => {
 });
 
 // ==========================================
-// EMAIL NOTIFICATIONS (DISABLED)
+// EMAIL NOTIFICATIONS (BREVO SMTP)
 // ==========================================
 
-app.post('/api/email/notify-admin', (req, res) => {
-  console.log('Email notification skipped (notify-admin)');
-  res.json({ success: true, message: 'Admin notified placeholder' });
+const ADMIN_EMAIL = 'revivedentalclinicp@gmail.com';
+
+/**
+ * Booking Received (Triggered by BookAppointment.jsx)
+ * Sends a pending confirmation to Patient.
+ */
+app.post('/api/email/notify-admin', async (req, res) => {
+  const { userName, userEmail, date, time } = req.body;
+  if (!userEmail) return res.status(400).json({ error: 'userEmail required' });
+
+  const subject = 'Appointment Request Received';
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; padding: 20px;">
+      <h2>Hello ${userName || 'Patient'},</h2>
+      <p>We have successfully received your appointment request at Revive Dental Clinic.</p>
+      <ul>
+        <li><strong>Date:</strong> ${date}</li>
+        <li><strong>Time:</strong> ${time}</li>
+        <li><strong>Status:</strong> Pending Approval</li>
+      </ul>
+      <p>We will review your request and confirm your appointment shortly!</p>
+    </div>
+  `;
+
+  // Safe wrapper (boolean returned, never throws)
+  await sendEmail({ to: userEmail, subject, html });
+  res.json({ success: true, message: 'Patient notified of booking receipt' });
 });
 
-app.post('/api/email/notify-user', (req, res) => {
-  console.log('Email notification skipped (notify-user)');
-  res.json({ success: true, message: 'User notified placeholder' });
+/**
+ * Appointment Status Updated (Triggered by AdminAppointments.jsx)
+ * Sends accepted/rejected/rescheduled alerts to Patient.
+ */
+app.post('/api/email/notify-user', async (req, res) => {
+  const { userEmail, userName, status, date, time, doctor } = req.body;
+  if (!userEmail || !status) return res.status(400).json({ error: 'userEmail and status required' });
+
+  let subject = '';
+  let bodyMessage = '';
+
+  if (status === 'accepted') {
+    subject = 'Appointment Confirmed';
+    bodyMessage = `
+      <p>Your appointment has been confirmed!</p>
+      <ul>
+        <li><strong>Doctor:</strong> ${doctor || 'Dr. Ajay Giri'}</li>
+        <li><strong>Date:</strong> ${date}</li>
+        <li><strong>Time:</strong> ${time}</li>
+        <li><strong>Contact:</strong> 8669062290</li>
+      </ul>
+    `;
+  } else if (status === 'rescheduled') {
+    subject = 'Appointment Rescheduled';
+    bodyMessage = `
+      <p>Your appointment has been successfully rescheduled.</p>
+      <ul>
+        <li><strong>New Date:</strong> ${date}</li>
+        <li><strong>New Time:</strong> ${time}</li>
+        <li><strong>Doctor:</strong> ${doctor || 'Dr. Ajay Giri'}</li>
+      </ul>
+      <p>Contact us at 8669062290 if you have any further questions.</p>
+    `;
+  } else if (status === 'rejected') {
+    subject = 'Appointment Update';
+    bodyMessage = `
+      <p>Unfortunately, we cannot accommodate the appointment time you requested.</p>
+      <p>Please log in to your dashboard to book a different time slot or call us directly at 8669062290 to arrange your visit.</p>
+    `;
+  }
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; padding: 20px;">
+      <h2>Hello ${userName || 'Patient'},</h2>
+      ${bodyMessage}
+      <p>Best Regards,</p>
+      <p>Revive Dental Speciality Clinic</p>
+    </div>
+  `;
+
+  // Safe wrapper
+  await sendEmail({ to: userEmail, subject, html });
+  res.json({ success: true, message: 'Status email handled' });
 });
 
-app.post('/api/email/welcome', (req, res) => {
-  console.log('Email notification skipped (welcome)');
+/**
+ * Welcome Email
+ */
+app.post('/api/email/welcome', async (req, res) => {
+  const { userEmail, userName } = req.body;
+  if (!userEmail) return res.status(400).json({ error: 'userEmail required' });
+
+  const subject = 'Welcome to Revive Dental';
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; padding: 20px;">
+      <h2>Welcome ${userName || 'Aboard'}! 🦷</h2>
+      <p>Your account has been successfully created.</p>
+      <p>You can now log in to book appointments and track your records.</p>
+    </div>
+  `;
+
+  await sendEmail({ to: userEmail, subject, html });
   res.json({ success: true });
 });
 

@@ -71,9 +71,16 @@ export function AuthProvider({ children }) {
         phone: '',
         createdAt: serverTimestamp(),
       });
-      // Send welcome email to new Google users
+      
       try {
-        console.log("Email notification skipped");
+        fetch(`${BACKEND_URL}/api/email/welcome`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userEmail: res.user.email,
+            userName: res.user.displayName,
+          }),
+        }).catch(() => { /* silent fail */ });
       } catch (e) { /* ignore */ }
     }
     return res;

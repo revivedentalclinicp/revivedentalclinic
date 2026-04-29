@@ -46,16 +46,22 @@ export default function AdminAppointments() {
     return () => unsubscribe();
   }, []);
 
-  /**
-   * Send email notification to patient
-   */
   async function sendUserEmail(appointment, status) {
     if (!appointment.email) return;
     try {
-      console.log('Email notification skipped');
-    } catch (e) {
-      console.warn('Email notification failed:', e.message);
-    }
+      fetch(`${BACKEND_URL}/api/email/notify-user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userEmail: appointment.email,
+          userName:  appointment.name || 'Patient',
+          status,
+          date:      appointment.date,
+          time:      appointment.time,
+          doctor:    appointment.doctor,
+        }),
+      }).catch(() => { /* silent fail */ });
+    } catch { /* ignore fetch wrapper faults */ }
   }
 
   async function handleStatusChange(appointment, status) {

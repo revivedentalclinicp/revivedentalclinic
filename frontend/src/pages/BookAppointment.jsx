@@ -89,10 +89,22 @@ export default function BookAppointment() {
         reason: form.reason,
       });
 
-      // Notify admin via backend email disabled
+      // Notify explicitly but asynchronously
       try {
-        console.log("Email notification skipped");
-      } catch { /* don't fail booking */ }
+        fetch(`${BACKEND_URL}/api/email/notify-admin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userName:  name,
+            userEmail: email,
+            userPhone: phone,
+            doctor:    form.doctor,
+            date:      form.date,
+            time:      form.time,
+            reason:    form.reason,
+          }),
+        }).catch(() => { /* silent fail */ });
+      } catch { /* completely ignore email fetch setup errors */ }
 
       toast.success('Appointment booked! We\'ll confirm shortly 🦷');
       navigate('/dashboard');
