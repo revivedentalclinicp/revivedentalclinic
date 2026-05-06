@@ -91,6 +91,21 @@ export default function AdminAppointments() {
     try {
       await processRescheduleRequest(appointment.id, action, appointment.newRequestedDate, appointment.newRequestedTime, appointment.userId);
       toast.success(`Reschedule request ${action === 'approve' ? 'approved ✓' : 'rejected'}`);
+      // Send email to patient about the outcome of their reschedule request
+      if (appointment.email) {
+        fetch(`${BACKEND_URL}/api/email/notify-reschedule`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userEmail:  appointment.email,
+            userName:   appointment.name || 'Patient',
+            action,
+            newDate:    appointment.newRequestedDate,
+            newTime:    appointment.newRequestedTime,
+            doctor:     appointment.doctor,
+          }),
+        }).catch(() => { /* silent fail — never crash */ });
+      }
     } catch { toast.error('Failed to process reschedule'); }
     setActionLoading(null);
   }

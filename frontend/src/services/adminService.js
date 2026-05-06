@@ -85,15 +85,16 @@ export async function processRescheduleRequest(id, action, newDate, newTime, use
       newRequestedTime: deleteField(),
       updatedAt: serverTimestamp()
     });
-    if (userId) await addNotification(userId, `Your reschedule request for ${newDate} at ${newTime} was approved!`, 'appointment');
+    if (userId) await addNotification(userId, `Your reschedule request for ${newDate} at ${newTime} was approved! ✅`, 'appointment');
   } else {
+    // Keep status as 'rejected' so patient can submit another reschedule request
     await updateDoc(ref, {
-      status: 'accepted',
+      status: 'rejected',
       newRequestedDate: deleteField(),
       newRequestedTime: deleteField(),
       updatedAt: serverTimestamp()
     });
-    if (userId) await addNotification(userId, `Your reschedule request was declined. Your originally scheduled time is kept.`, 'appointment');
+    if (userId) await addNotification(userId, `Your reschedule request was declined. You can submit a new request from your dashboard.`, 'appointment');
   }
 }
 

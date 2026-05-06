@@ -6,6 +6,8 @@ import toast from 'react-hot-toast';
 import { FiMail, FiLock, FiUser, FiPhone } from 'react-icons/fi';
 import { FcGoogle } from 'react-icons/fc';
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://revivedentalbackend.onrender.com';
+
 export default function Signup() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirm: '' });
   const [loading, setLoading] = useState(false);
@@ -28,6 +30,15 @@ export default function Signup() {
         setLoading(false);
         return;
       }
+      // Fire welcome email asynchronously — never blocks navigation
+      try {
+        fetch(`${BACKEND_URL}/api/email/welcome`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userEmail: form.email, userName: form.name }),
+        }).catch(() => { /* silent fail */ });
+      } catch { /* ignore */ }
+
       toast.success('Account created! Welcome 🦷');
       navigate('/dashboard');
     } catch (err) {

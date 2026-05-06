@@ -456,14 +456,14 @@ export default function Dashboard() {
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
-                        {['DATE', 'TIME', 'CLINICIAN', 'STATUS'].map(h => (
+                        {['DATE', 'TIME', 'CLINICIAN', 'STATUS', 'ACTION'].map(h => (
                           <th key={h} style={{ textAlign: 'left', padding: '10px 14px', fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', letterSpacing: 0.5, borderBottom: '1px solid #f1f5f9' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {historyAppointments.length === 0 ? (
-                        <tr><td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: '#64748b', fontSize: '0.85rem' }}>No history records found.</td></tr>
+                        <tr><td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: '#64748b', fontSize: '0.85rem' }}>No history records found.</td></tr>
                       ) : (
                         historyAppointments.map((a) => (
                           <tr key={a.id} style={{ borderBottom: '1px solid #f8fafc' }}>
@@ -476,6 +476,21 @@ export default function Dashboard() {
                               <span style={{ padding: '4px 10px', borderRadius: 50, fontSize: '0.75rem', fontWeight: 600, textTransform: 'capitalize', ...(STATUS_STYLE[a.status] || STATUS_STYLE['pending']) }}>
                                 {a.status}
                               </span>
+                            </td>
+                            <td style={{ padding: '14px' }}>
+                              {a.status === 'rejected' && (
+                                <button
+                                  onClick={() => setRescheduleModal(a)}
+                                  style={{
+                                    background: '#fdf4ff', border: '1px solid #f5d0fe',
+                                    color: '#c026d3', padding: '6px 12px', borderRadius: 8,
+                                    fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  🔁 Reschedule
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))
