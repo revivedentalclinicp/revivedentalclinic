@@ -1,65 +1,101 @@
 const nodemailer = require('nodemailer');
 
 // ── Transporter (Brevo SMTP) ──────────────────────────────────────
+// Added explicit timeouts to prevent hanging on hosted platforms (Render, Railway, etc.)
 const transporter = nodemailer.createTransport({
   host: 'smtp-relay.brevo.com',
   port: 587,
-  secure: false,  // STARTTLS on 587
+  secure: false,
   auth: {
-    user: process.env.EMAIL_USER,  // Brevo SMTP login  (e.g. a89e3e001@smtp-brevo.com)
+    user: process.env.EMAIL_USER,  // Brevo SMTP login  (a89e3e001@smtp-brevo.com)
     pass: process.env.EMAIL_PASS,  // Brevo SMTP key    (xsmtpsib-...)
   },
   tls: { rejectUnauthorized: false },
+  connectionTimeout: 10000,   // 10s — max time to establish TCP connection
+  greetingTimeout:   10000,   // 10s — max time for SMTP greeting
+  socketTimeout:     15000,   // 15s — max time for individual socket operations
 });
 
-// ── Boot-time SMTP Verification ───────────────────────────────────
+// ── Boot Verification ─────────────────────────────────────────────
 transporter.verify(function (error) {
   if (error) {
     console.error('❌ SMTP ERROR on boot:', error.message);
-    console.error('   ➜ Check EMAIL_USER + EMAIL_PASS in backend/.env');
-    console.error('   ➜ EMAIL_USER must be the Brevo SMTP login (app.brevo.com → SMTP & API)');
-    console.error('   ➜ EMAIL_FROM must be verified at app.brevo.com → Senders & Domains');
+    console.error('   ➜ Check EMAIL_USER + EMAIL_PASS in .env / Render env vars');
   } else {
     const senderFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER;
-    console.log('✅ SMTP READY — Brevo connected successfully');
+    console.log('✅ SMTP READY — Brevo connected');
     console.log(`   ➜ SMTP Auth : ${process.env.EMAIL_USER}`);
     console.log(`   ➜ Sender    : ${senderFrom}`);
-    if (!process.env.EMAIL_FROM) {
-      console.warn('   ⚠️  TIP: Set EMAIL_FROM=yourverifiedemail@gmail.com in .env');
-      console.warn('           Verified sender emails have better inbox delivery rates');
-    }
   }
 });
 
-// ── sendEmail() ───────────────────────────────────────────────────
+// ── Brevo HTTP API fallback (used if SMTP fails or times out) ─────
+// Uses Brevo's transactional email REST API — more reliable on hosted platforms
+async function sendViaBrevoAPI({ to, subject, html }) {
+  const apiKey = process.env.BREVO_API_KEY || process.env.EMAIL_PASS;
+  const senderEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+
+  if (!apiKey) {
+    console.warn('⚠️  Brevo API fallback skipped: no API key');
+    return false;
+  }
+
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': apiKey,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender:  { name: 'Revive Dental Clinic', email: senderEmail },
+        to:      [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log(`✅ EMAIL SENT via Brevo API → MessageId: ${data.messageId} | To: ${to}`);
+      return true;
+    } else {
+      console.error(`❌ Brevo API error: ${JSON.stringify(data)}`);
+      return false;
+    }
+  } catch (err) {
+    console.error(`❌ Brevo API fetch failed: ${err.message}`);
+    return false;
+  }
+}
+
+// ── sendEmail() — tries SMTP first, falls back to HTTP API ────────
 /**
- * Sends an HTML email via Brevo SMTP.
- * - Never throws — always returns true/false so callers never crash.
- * - EMAIL_FROM (verified sender) is used in the "from" field.
- * - Falls back to EMAIL_USER if EMAIL_FROM is not set.
+ * Sends an HTML email. Tries Brevo SMTP first; if it fails/times out,
+ * falls back to Brevo HTTP API. Never throws — always returns boolean.
  *
- * @param {string} to      - Recipient email address
+ * @param {string} to      - Recipient email
  * @param {string} subject - Subject line
  * @param {string} html    - HTML body
  * @returns {Promise<boolean>}
  */
 async function sendEmail({ to, subject, html }) {
-  // ── Guard: credentials ───────────────────────────────────────────
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.warn('⚠️  EMAIL SKIPPED: EMAIL_USER or EMAIL_PASS missing in .env');
+    console.warn('⚠️  EMAIL SKIPPED: Missing EMAIL_USER or EMAIL_PASS');
     return false;
   }
 
-  // ── Guard: recipient ─────────────────────────────────────────────
   if (!to) {
-    console.warn('⚠️  EMAIL SKIPPED: No recipient (to) provided');
+    console.warn('⚠️  EMAIL SKIPPED: No recipient provided');
     return false;
   }
 
   const senderAddress = process.env.EMAIL_FROM || process.env.EMAIL_USER;
-
   console.log(`📧 EMAIL TRIGGERED → To: ${to} | Subject: "${subject}"`);
 
+  // ── Attempt 1: SMTP ─────────────────────────────────────────────
   try {
     const info = await transporter.sendMail({
       from:    `"Revive Dental Clinic" <${senderAddress}>`,
@@ -67,18 +103,18 @@ async function sendEmail({ to, subject, html }) {
       subject,
       html,
     });
-
-    console.log(`✅ EMAIL SENT → MessageId: ${info.messageId} | To: ${to}`);
+    console.log(`✅ EMAIL SENT (SMTP) → MessageId: ${info.messageId} | To: ${to}`);
     return true;
-  } catch (err) {
-    console.error(`❌ EMAIL FAILED → To: ${to} | Subject: "${subject}"`);
-    console.error(`   Error   : ${err.message}`);
-    if (err.responseCode) {
-      console.error(`   SMTP Code: ${err.responseCode}`);
-      console.error(`   (535 = bad credentials | 550 = unverified sender | 421 = rate limit)`);
+  } catch (smtpErr) {
+    console.warn(`⚠️  SMTP failed: ${smtpErr.message}`);
+    if (smtpErr.responseCode) {
+      console.warn(`   SMTP Code: ${smtpErr.responseCode} (535=bad creds | 550=sender issue | 421=rate limit)`);
     }
-    return false;
+    console.log('   ➜ Falling back to Brevo HTTP API...');
   }
+
+  // ── Attempt 2: Brevo HTTP API ────────────────────────────────────
+  return await sendViaBrevoAPI({ to, subject, html });
 }
 
 module.exports = { sendEmail };
