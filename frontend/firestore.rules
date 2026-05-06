@@ -62,5 +62,13 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.auth.uid == request.resource.data.userId;
     }
+
+    // ─── Notifications ──────────────────────────────────────────────
+    match /notifications/{notificationId} {
+      // Users can read and update (mark as read) their own notifications
+      allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
+      // Admins can create notifications for users
+      allow create: if request.auth != null && isAdmin();
+    }
   }
 }

@@ -61,7 +61,11 @@ export async function updateAppointmentStatus(id, status, userId) {
       let msg = `Your appointment status was updated to ${status}.`;
       if (status === 'accepted') msg = 'Your appointment has been approved!';
       if (status === 'rejected') msg = 'Your appointment has been cancelled by the clinic.';
-      await addNotification(userId, msg, 'appointment');
+      try {
+        await addNotification(userId, msg, 'appointment');
+      } catch (notifErr) {
+        console.warn("⚠️ Non-fatal: Failed to add notification", notifErr);
+      }
     }
   } catch (error) {
     console.error("❌ ADMIN ACTION ERROR:", error);
@@ -82,7 +86,11 @@ export async function rescheduleAppointment(id, date, time, userId) {
     });
     
     if (userId) {
-      await addNotification(userId, `Your appointment was rescheduled to ${date} at ${time}.`, 'appointment');
+      try {
+        await addNotification(userId, `Your appointment was rescheduled to ${date} at ${time}.`, 'appointment');
+      } catch (notifErr) {
+        console.warn("⚠️ Non-fatal: Failed to add notification", notifErr);
+      }
     }
   } catch (error) {
     console.error("❌ ADMIN RESCHEDULE ERROR:", error);
@@ -104,7 +112,11 @@ export async function processRescheduleRequest(id, action, newDate, newTime, use
         newRequestedTime: deleteField(),
         updatedAt: serverTimestamp()
       });
-      if (userId) await addNotification(userId, `Your reschedule request for ${newDate} at ${newTime} was approved! ✅`, 'appointment');
+      if (userId) {
+        try {
+          await addNotification(userId, `Your reschedule request for ${newDate} at ${newTime} was approved! ✅`, 'appointment');
+        } catch (notifErr) {}
+      }
     } else {
       // Keep status as 'rejected' so patient can submit another reschedule request
       await updateDoc(ref, {
@@ -113,7 +125,11 @@ export async function processRescheduleRequest(id, action, newDate, newTime, use
         newRequestedTime: deleteField(),
         updatedAt: serverTimestamp()
       });
-      if (userId) await addNotification(userId, `Your reschedule request was declined. You can submit a new request from your dashboard.`, 'appointment');
+      if (userId) {
+        try {
+          await addNotification(userId, `Your reschedule request was declined. You can submit a new request from your dashboard.`, 'appointment');
+        } catch (notifErr) {}
+      }
     }
   } catch (error) {
     console.error("❌ ADMIN PROCESS RESCHEDULE ERROR:", error);
