@@ -40,6 +40,16 @@ async function sendViaBrevoAPI({ to, subject, html }) {
     return false;
   }
 
+  // Handle multiple recipients
+  let toArray = [];
+  if (Array.isArray(to)) {
+    toArray = to.map(email => ({ email: email.trim() }));
+  } else if (typeof to === 'string') {
+    toArray = to.split(',').map(email => ({ email: email.trim() }));
+  } else {
+    toArray = [{ email: to }];
+  }
+
   try {
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
@@ -50,7 +60,7 @@ async function sendViaBrevoAPI({ to, subject, html }) {
       },
       body: JSON.stringify({
         sender:  { name: 'Revive Dental Clinic', email: senderEmail },
-        to:      [{ email: to }],
+        to:      toArray,
         subject,
         htmlContent: html,
       }),
@@ -93,13 +103,17 @@ async function sendEmail({ to, subject, html }) {
   }
 
   const senderAddress = process.env.EMAIL_FROM || process.env.EMAIL_USER;
-  console.log(`📧 EMAIL TRIGGERED → To: ${to} | Subject: "${subject}"`);
+  
+  // Format 'to' field for SMTP (array to comma-separated string)
+  const toFormatted = Array.isArray(to) ? to.join(', ') : to;
+
+  console.log(`📧 EMAIL TRIGGERED → To: ${toFormatted} | Subject: "${subject}"`);
 
   // ── Attempt 1: SMTP ─────────────────────────────────────────────
   try {
     const info = await transporter.sendMail({
       from:    `"Revive Dental Clinic" <${senderAddress}>`,
-      to,
+      to:      toFormatted,
       subject,
       html,
     });

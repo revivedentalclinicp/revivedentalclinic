@@ -135,7 +135,9 @@ app.delete('/api/appointments/:id', async (req, res) => {
 // EMAIL NOTIFICATIONS (BREVO SMTP)
 // ==========================================
 
-const ADMIN_EMAIL = 'revivedentalclinicp@gmail.com';
+const ADMIN_EMAILS = process.env.ADMIN_EMAILS 
+  ? process.env.ADMIN_EMAILS.split(',').map(e => e.trim()) 
+  : ['revivedentalclinicp@gmail.com'];
 
 /**
  * Booking Received (Triggered by BookAppointment.jsx)
@@ -188,7 +190,7 @@ app.post('/api/email/notify-admin', async (req, res) => {
       <p style="color: #475569;">Please log into the <strong>Admin Panel</strong> to approve or reject this request.</p>
     </div>
   `;
-  await sendEmail({ to: ADMIN_EMAIL, subject: adminSubject, html: adminHtml });
+  await sendEmail({ to: ADMIN_EMAILS, subject: adminSubject, html: adminHtml });
 
   res.json({ success: true, message: 'Patient and admin notified of new booking' });
 });
@@ -359,7 +361,7 @@ app.post('/api/email/welcome', async (req, res) => {
 // GET /test-email?to=youremail@example.com
 // ==========================================
 app.get('/test-email', async (req, res) => {
-  const to = req.query.to || ADMIN_EMAIL;
+  const to = req.query.to || ADMIN_EMAILS[0];
 
   console.log(`🧪 TEST EMAIL triggered → sending to: ${to}`);
 

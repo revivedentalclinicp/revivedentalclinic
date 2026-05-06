@@ -51,50 +51,73 @@ export function subscribeAllAppointments(callback) {
 }
 
 export async function updateAppointmentStatus(id, status, userId) {
-  const ref = doc(db, 'appointments', id);
-  await updateDoc(ref, { status, updatedAt: serverTimestamp() });
-  if (userId) {
-    let msg = `Your appointment status was updated to ${status}.`;
-    if (status === 'accepted') msg = 'Your appointment has been approved!';
-    if (status === 'rejected') msg = 'Your appointment has been cancelled by the clinic.';
-    await addNotification(userId, msg, 'appointment');
+  if (!id) throw new Error("Invalid appointment ID");
+  
+  try {
+    const ref = doc(db, 'appointments', id);
+    await updateDoc(ref, { status, updatedAt: serverTimestamp() });
+    
+    if (userId) {
+      let msg = `Your appointment status was updated to ${status}.`;
+      if (status === 'accepted') msg = 'Your appointment has been approved!';
+      if (status === 'rejected') msg = 'Your appointment has been cancelled by the clinic.';
+      await addNotification(userId, msg, 'appointment');
+    }
+  } catch (error) {
+    console.error("❌ ADMIN ACTION ERROR:", error);
+    throw error;
   }
 }
 
 export async function rescheduleAppointment(id, date, time, userId) {
-  const ref = doc(db, 'appointments', id);
-  await updateDoc(ref, {
-    date,
-    time,
-    status: 'rescheduled',
-    updatedAt: serverTimestamp(),
-  });
-  if (userId) {
-    await addNotification(userId, `Your appointment was rescheduled to ${date} at ${time}.`, 'appointment');
+  if (!id) throw new Error("Invalid appointment ID");
+
+  try {
+    const ref = doc(db, 'appointments', id);
+    await updateDoc(ref, {
+      date,
+      time,
+      status: 'rescheduled',
+      updatedAt: serverTimestamp(),
+    });
+    
+    if (userId) {
+      await addNotification(userId, `Your appointment was rescheduled to ${date} at ${time}.`, 'appointment');
+    }
+  } catch (error) {
+    console.error("❌ ADMIN RESCHEDULE ERROR:", error);
+    throw error;
   }
 }
 
 export async function processRescheduleRequest(id, action, newDate, newTime, userId) {
-  const ref = doc(db, 'appointments', id);
-  if (action === 'approve') {
-    await updateDoc(ref, {
-      date: newDate,
-      time: newTime,
-      status: 'accepted',
-      newRequestedDate: deleteField(),
-      newRequestedTime: deleteField(),
-      updatedAt: serverTimestamp()
-    });
-    if (userId) await addNotification(userId, `Your reschedule request for ${newDate} at ${newTime} was approved! ✅`, 'appointment');
-  } else {
-    // Keep status as 'rejected' so patient can submit another reschedule request
-    await updateDoc(ref, {
-      status: 'rejected',
-      newRequestedDate: deleteField(),
-      newRequestedTime: deleteField(),
-      updatedAt: serverTimestamp()
-    });
-    if (userId) await addNotification(userId, `Your reschedule request was declined. You can submit a new request from your dashboard.`, 'appointment');
+  if (!id) throw new Error("Invalid appointment ID");
+
+  try {
+    const ref = doc(db, 'appointments', id);
+    if (action === 'approve') {
+      await updateDoc(ref, {
+        date: newDate,
+        time: newTime,
+        status: 'accepted',
+        newRequestedDate: deleteField(),
+        newRequestedTime: deleteField(),
+        updatedAt: serverTimestamp()
+      });
+      if (userId) await addNotification(userId, `Your reschedule request for ${newDate} at ${newTime} was approved! ✅`, 'appointment');
+    } else {
+      // Keep status as 'rejected' so patient can submit another reschedule request
+      await updateDoc(ref, {
+        status: 'rejected',
+        newRequestedDate: deleteField(),
+        newRequestedTime: deleteField(),
+        updatedAt: serverTimestamp()
+      });
+      if (userId) await addNotification(userId, `Your reschedule request was declined. You can submit a new request from your dashboard.`, 'appointment');
+    }
+  } catch (error) {
+    console.error("❌ ADMIN PROCESS RESCHEDULE ERROR:", error);
+    throw error;
   }
 }
 
