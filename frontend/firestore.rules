@@ -42,9 +42,9 @@ service cloud.firestore {
     }
 
     // ─── Inquiries ──────────────────────────────────────────────────
-    // Anyone authenticated can create; admin can read/update/delete
+    // Anyone can create; admin can read/update/delete
     match /inquiries/{inquiryId} {
-      allow create: if request.auth != null;
+      allow create: if true;
       allow read, update, delete: if isAdmin();
     }
 
