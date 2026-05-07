@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { getAllInquiries, markInquiryContacted, deleteInquiry } from '../../services/adminService';
+import { subscribeInquiries } from '../../services/inquiryService';
+import { markInquiryContacted, deleteInquiry } from '../../services/adminService';
 import toast from 'react-hot-toast';
-import { FiCheck, FiTrash2, FiSearch, FiPhone } from 'react-icons/fi';
+import { FiCheck, FiTrash2, FiSearch, FiPhone, FiMail } from 'react-icons/fi';
 
+// Status badge styling
 const STATUS_COLORS = {
   new:       { bg: '#fffbeb', color: '#d97706', border: '#fde68a' },
   contacted: { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
@@ -10,42 +12,48 @@ const STATUS_COLORS = {
 
 export default function AdminInquiries() {
   const [inquiries, setInquiries] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [loading, setLoading]     = useState(true);
+  const [search, setSearch]       = useState('');
 
-  useEffect(() => { fetchData(); }, []);
-
-  async function fetchData() {
-    try {
-      const data = await getAllInquiries();
+  // ── Real-time listener (onSnapshot) ───────────────────────────
+  useEffect(() => {
+    const unsub = subscribeInquiries((data) => {
       setInquiries(data);
-    } catch { toast.error('Failed to load inquiries'); }
-    setLoading(false);
-  }
+      setLoading(false);
+    });
+    return () => unsub(); // Cleanup on unmount
+  }, []);
 
+  // ── Mark as Contacted ──────────────────────────────────────────
   async function handleMarkContacted(id) {
     try {
       await markInquiryContacted(id);
       toast.success('Marked as contacted');
-      fetchData();
-    } catch { toast.error('Failed to update'); }
+      // No need to re-fetch — onSnapshot updates automatically
+    } catch {
+      toast.error('Failed to update');
+    }
   }
 
+  // ── Delete Inquiry ─────────────────────────────────────────────
   async function handleDelete(id) {
     if (!confirm('Delete this inquiry?')) return;
     try {
       await deleteInquiry(id);
       toast.success('Inquiry deleted');
-      fetchData();
-    } catch { toast.error('Failed to delete'); }
+    } catch {
+      toast.error('Failed to delete');
+    }
   }
 
+  // ── Search Filter ──────────────────────────────────────────────
   const filtered = inquiries.filter(inq =>
-    (inq.name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (inq.name  || '').toLowerCase().includes(search.toLowerCase()) ||
     (inq.phone || '').includes(search) ||
     (inq.email || '').toLowerCase().includes(search.toLowerCase())
   );
 
+  // ── Loading State ──────────────────────────────────────────────
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
@@ -56,6 +64,7 @@ export default function AdminInquiries() {
 
   return (
     <div>
+      {/* Header row */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         marginBottom: 20, flexWrap: 'wrap', gap: 12,
@@ -66,13 +75,18 @@ export default function AdminInquiries() {
           </h2>
           <p style={{ color: '#94a3b8', fontSize: '0.82rem' }}>
             <FiPhone size={12} style={{ marginRight: 4 }} />
-            Contact patients using clinic phone: <strong style={{ color: '#0f172a' }}>8669062290</strong>
+            Clinic phone: <strong style={{ color: '#0f172a' }}>8669062290</strong>
+            &nbsp;&nbsp;•&nbsp;&nbsp;
+            <span style={{ color: '#16a34a', fontWeight: 600 }}>● Live</span>
           </p>
         </div>
+
+        {/* Search */}
         <div style={{ position: 'relative' }}>
           <FiSearch size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
           <input
-            value={search} onChange={e => setSearch(e.target.value)}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
             placeholder="Search by name, phone, email..."
             className="form-control"
             style={{ paddingLeft: 32, width: 280, fontSize: '0.85rem' }}
@@ -80,12 +94,13 @@ export default function AdminInquiries() {
         </div>
       </div>
 
+      {/* Table */}
       <div style={{
         background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0',
         boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden',
       }}>
         <div className="table-responsive" style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
                 {['Name', 'Phone', 'Email', 'Location', 'Message', 'Status', 'Actions'].map(h => (
@@ -109,23 +124,43 @@ export default function AdminInquiries() {
                   const sc = STATUS_COLORS[inq.status] || STATUS_COLORS.new;
                   return (
                     <tr key={inq.id} style={{ borderBottom: '1px solid #f8fafc' }}>
+
+                      {/* Name */}
                       <td style={{ padding: '14px 16px', fontWeight: 600, fontSize: '0.88rem', color: '#0f172a' }}>
                         {inq.name || '—'}
                       </td>
+
+                      {/* Phone — clickable call link */}
                       <td style={{ padding: '14px 16px', fontSize: '0.85rem', color: '#475569' }}>
-                        {inq.phone || '—'}
+                        {inq.phone ? (
+                          <a href={`tel:${inq.phone}`} style={{ color: '#3B3F97', fontWeight: 600, textDecoration: 'none' }}>
+                            {inq.phone}
+                          </a>
+                        ) : '—'}
                       </td>
+
+                      {/* Email — clickable mailto link */}
                       <td style={{ padding: '14px 16px', fontSize: '0.85rem', color: '#475569' }}>
-                        {inq.email || '—'}
+                        {inq.email ? (
+                          <a href={`mailto:${inq.email}`} style={{ color: '#3B3F97', textDecoration: 'none' }}>
+                            {inq.email}
+                          </a>
+                        ) : '—'}
                       </td>
+
+                      {/* Location */}
                       <td style={{ padding: '14px 16px', fontSize: '0.85rem', color: '#475569' }}>
                         {inq.location || '—'}
                       </td>
+
+                      {/* Message */}
                       <td style={{ padding: '14px 16px', fontSize: '0.82rem', color: '#475569', maxWidth: 200 }}>
                         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {inq.message || '—'}
                         </div>
                       </td>
+
+                      {/* Status Badge */}
                       <td style={{ padding: '14px 16px' }}>
                         <span style={{
                           padding: '4px 10px', borderRadius: 50, fontSize: '0.75rem',
@@ -135,8 +170,46 @@ export default function AdminInquiries() {
                           {inq.status}
                         </span>
                       </td>
+
+                      {/* Actions */}
                       <td style={{ padding: '14px 16px' }}>
-                        <div style={{ display: 'flex', gap: 6 }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+
+                          {/* Call button */}
+                          {inq.phone && (
+                            <a
+                              href={`tel:${inq.phone}`}
+                              title={`Call ${inq.name}`}
+                              style={{
+                                padding: '5px 10px', borderRadius: 6, display: 'flex',
+                                alignItems: 'center', gap: 4,
+                                border: '1px solid #bfdbfe', background: '#eff6ff',
+                                color: '#2563eb', fontWeight: 600, fontSize: '0.78rem',
+                                textDecoration: 'none',
+                              }}
+                            >
+                              <FiPhone size={13} /> Call
+                            </a>
+                          )}
+
+                          {/* Email button */}
+                          {inq.email && (
+                            <a
+                              href={`mailto:${inq.email}`}
+                              title={`Email ${inq.name}`}
+                              style={{
+                                padding: '5px 10px', borderRadius: 6, display: 'flex',
+                                alignItems: 'center', gap: 4,
+                                border: '1px solid #e9d5ff', background: '#faf5ff',
+                                color: '#7c3aed', fontWeight: 600, fontSize: '0.78rem',
+                                textDecoration: 'none',
+                              }}
+                            >
+                              <FiMail size={13} /> Email
+                            </a>
+                          )}
+
+                          {/* Mark as Contacted */}
                           {inq.status === 'new' && (
                             <button
                               onClick={() => handleMarkContacted(inq.id)}
@@ -150,6 +223,8 @@ export default function AdminInquiries() {
                               <FiCheck size={13} /> Contacted
                             </button>
                           )}
+
+                          {/* Delete */}
                           <button
                             onClick={() => handleDelete(inq.id)}
                             style={{

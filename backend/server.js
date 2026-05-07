@@ -322,6 +322,42 @@ app.post('/api/email/notify-reschedule', async (req, res) => {
 });
 
 /**
+ * New Inquiry Received (Triggered by Home.jsx contact form)
+ * Notifies all admin emails when a guest/user submits the inquiry form.
+ * Email failure is non-fatal — inquiry is always saved to Firestore first.
+ */
+app.post('/api/email/notify-inquiry', async (req, res) => {
+  const { name, phone, email, message } = req.body;
+  if (!name || !phone || !message) {
+    return res.status(400).json({ error: 'name, phone, and message are required' });
+  }
+
+  const subject = `📩 New Inquiry — ${name}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px;">
+      <h2 style="color: #2E3192; margin-bottom: 4px;">🦷 New Website Inquiry</h2>
+      <p style="color: #64748b; margin-top: 0;">Someone has submitted an inquiry via the Revive Dental website.</p>
+
+      <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin: 16px 0; border-left: 4px solid #2E3192;">
+        <p style="margin: 0 0 8px;"><strong>👤 Name:</strong> ${name}</p>
+        <p style="margin: 0 0 8px;"><strong>📞 Phone:</strong> <a href="tel:${phone}" style="color:#2E3192;">${phone}</a></p>
+        ${email ? `<p style="margin: 0 0 8px;"><strong>📧 Email:</strong> <a href="mailto:${email}" style="color:#2E3192;">${email}</a></p>` : ''}
+        <p style="margin: 0;"><strong>💬 Message:</strong> ${message}</p>
+      </div>
+
+      <p style="color: #475569;">Please log into the <strong>Admin Panel → Inquiries</strong> to view and respond.</p>
+      <p style="color: #64748b; font-size: 0.85rem;">📞 You can also call directly: <strong>${phone}</strong></p>
+      <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 20px 0;"/>
+      <p style="color: #94a3b8; font-size: 0.78rem; text-align: center;">Revive Dental Speciality Clinic — Inquiry Alert</p>
+    </div>
+  `;
+
+  // Send to ALL admin emails (non-blocking)
+  await sendEmail({ to: ADMIN_EMAILS, subject, html });
+  res.json({ success: true, message: 'Inquiry notification sent to admin(s)' });
+});
+
+/**
  * Welcome Email (Triggered by Signup.jsx after new user registration)
  */
 app.post('/api/email/welcome', async (req, res) => {

@@ -4,7 +4,7 @@
  */
 import {
   collection, addDoc, getDocs, updateDoc, deleteDoc, doc,
-  query, orderBy, serverTimestamp,
+  query, orderBy, serverTimestamp, onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -15,16 +15,29 @@ const COL = 'inquiries';
  */
 export async function submitInquiry(data) {
   const payload = {
-    name:      data.name,
-    email:     data.email,
-    phone:     data.phone,
-    location:  data.location,
-    message:   data.message,
+    name:      (data.name || '').trim(),
+    email:     (data.email || '').trim(),
+    phone:     (data.phone || '').trim(),
+    location:  (data.location || '').trim(),
+    message:   (data.message || '').trim(),
     status:    'new',
+    source:    'website',
     createdAt: serverTimestamp(),
   };
   const ref = await addDoc(collection(db, COL), payload);
   return { id: ref.id, ...payload };
+}
+
+/**
+ * Real-time listener for inquiries (admin use only)
+ * Returns unsubscribe function — call it on component unmount
+ */
+export function subscribeInquiries(callback) {
+  const q = query(collection(db, COL), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snap) => {
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    callback(data);
+  });
 }
 
 /**

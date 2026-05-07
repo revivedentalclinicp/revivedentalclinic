@@ -9,7 +9,10 @@ import { GiTooth } from 'react-icons/gi';
 import { useState, useEffect, useRef } from 'react';
 import { useScrollAnimation, fadeUp, stagger, scaleIn } from '../hooks/useScrollAnimation';
 import { submitInquiry } from '../services/inquiryService';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://revivedentalbackend.onrender.com';
 
 /* ═══════════════════════════════════════════
    HERO
@@ -574,9 +577,22 @@ function CTABanner() {
    CONTACT / INQUIRY SECTION
 ═══════════════════════════════════════════ */
 function ContactSection() {
+  const { currentUser, userProfile } = useAuth();
   const [form, setForm] = useState({ name: '', email: '', phone: '', location: '', message: '' });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]   = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  // Auto-fill form fields when a user is logged in
+  useEffect(() => {
+    if (currentUser) {
+      setForm(prev => ({
+        ...prev,
+        name:  prev.name  || userProfile?.name  || currentUser.displayName || '',
+        email: prev.email || userProfile?.email || currentUser.email       || '',
+        phone: prev.phone || userProfile?.phone || '',
+      }));
+    }
+  }, [currentUser, userProfile]);
 
   function handleChange(e) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -584,16 +600,30 @@ function ContactSection() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!form.name || !form.email || !form.phone || !form.location || !form.message) {
-      toast.error('Please fill in all fields');
+    // Email is optional — only name, phone, message are required
+    if (!form.name.trim() || !form.phone.trim() || !form.message.trim()) {
+      toast.error('Please fill in Name, Phone and Message');
       return;
     }
     setLoading(true);
     try {
       await submitInquiry(form);
+
+      // Notify admin via email (non-blocking — failure doesn't break submission)
+      fetch(`${BACKEND_URL}/api/email/notify-inquiry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name:    form.name,
+          phone:   form.phone,
+          email:   form.email,
+          message: form.message,
+        }),
+      }).catch(() => { /* silent — email failure never blocks inquiry */ });
+
       setSubmitted(true);
       setForm({ name: '', email: '', phone: '', location: '', message: '' });
-    } catch (err) {
+    } catch {
       toast.error('Failed to send message. Please try again.');
     }
     setLoading(false);
@@ -675,11 +705,11 @@ function ContactSection() {
                       />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label>Email Address *</label>
+                      <label>Email Address <span style={{ color: '#94a3b8', fontWeight: 400 }}>(optional)</span></label>
                       <input
                         name="email" type="email" className="form-control"
                         placeholder="ravi@email.com"
-                        value={form.email} onChange={handleChange} required
+                        value={form.email} onChange={handleChange}
                       />
                     </div>
                   </div>
